@@ -12,7 +12,7 @@ class FeatureApiClient {
         .baseUrl(BuildConfig.API_BASE_URL.ensureSlash())
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
-        .create()
+        .create(FeatureApiService::class.java)
 
     private fun String.ensureSlash() = if (endsWith("/")) this else "$this/"
 }

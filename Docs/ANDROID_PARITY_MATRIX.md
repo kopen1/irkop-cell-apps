@@ -12,6 +12,7 @@ Source of truth:
 - `Verified`: feature has a dedicated relevant test and the latest GitHub Actions run passes that test.
 - **DONE = Implemented + Verified.**
 - A green build/lint alone does **not** mark a feature Verified.
+- Current migration phase: implementation only. Build/test/lint intentionally deferred.
 
 ## Authentication
 - Implemented [x] — Verified [ ] Login username/password
@@ -52,152 +53,152 @@ Source of truth:
 - Implemented [x] — Verified [ ] Detail
 - Implemented [x] — Verified [ ] Edit
 - Implemented [x] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Atomic reversal
+- Implemented [x] — Verified [ ] Atomic reversal
 - Implemented [x] — Verified [ ] Receipt
 - Implemented [x] — Verified [ ] Manual entry
 - Implemented [x] — Verified [ ] Backdate <= 30 days
-- Implemented [ ] — Verified [ ] Idempotency key
-- Implemented [ ] — Verified [ ] Closed kasir -> 409
+- Implemented [x] — Verified [ ] Idempotency key
+- Implemented [x] — Verified [ ] Closed kasir -> 409
 
 ## Kasir
 - Implemented [x] — Verified [ ] Opening
-- Implemented [ ] — Verified [ ] Per-account opening balance
-- Implemented [ ] — Verified [ ] One session/day
+- Implemented [x] — Verified [ ] Per-account opening balance
+- Implemented [x] — Verified [ ] One session/day
 - Implemented [x] — Verified [ ] Closing
-- Implemented [ ] — Verified [ ] System vs real reconciliation
-- Implemented [ ] — Verified [ ] Old-session reminder
-- Implemented [ ] — Verified [ ] Closing creates no mutation
+- Implemented [x] — Verified [ ] System vs real reconciliation
+- Implemented [x] — Verified [ ] Old-session reminder
+- Implemented [x] — Verified [ ] Closing creates no mutation
 
 ## Produk
-- Implemented [ ] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Search
-- Implemented [ ] — Verified [ ] Filter
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] List
+- Implemented [x] — Verified [ ] Search
+- Implemented [x] — Verified [ ] Filter
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Category
-- Implemented [ ] — Verified [ ] Selling price
-- Implemented [ ] — Verified [ ] Cost price
-- Implemented [ ] — Verified [ ] Unit
-- Implemented [ ] — Verified [ ] Stock
-- Implemented [ ] — Verified [ ] Minimum stock
+- Implemented [x] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Category
+- Implemented [x] — Verified [ ] Selling price
+- Implemented [x] — Verified [ ] Cost price
+- Implemented [x] — Verified [ ] Unit
+- Implemented [x] — Verified [ ] Stock
+- Implemented [x] — Verified [ ] Minimum stock
 
 ## Pelanggan
-- Implemented [ ] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Search
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] List
+- Implemented [x] — Verified [ ] Search
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Detail
 - Implemented [ ] — Verified [ ] Purchase history
 - Implemented [ ] — Verified [ ] Merge
-- Implemented [ ] — Verified [ ] Loyal customer ranking
+- Implemented [x] — Verified [ ] Loyal customer ranking
 
 ## Kasbon
-- Implemented [ ] — Verified [ ] List
+- Implemented [x] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Detail
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Belum lunas
-- Implemented [ ] — Verified [ ] Lunas
-- Implemented [ ] — Verified [ ] Settlement
+- Implemented [x] — Verified [ ] Belum lunas
+- Implemented [x] — Verified [ ] Lunas
+- Implemented [x] — Verified [ ] Settlement
 
 ## Pengeluaran
-- Implemented [ ] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] List
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Description
-- Implemented [ ] — Verified [ ] Amount
-- Implemented [ ] — Verified [ ] Payment method
-- Implemented [ ] — Verified [ ] Source account
-- Implemented [ ] — Verified [ ] Atomic reversal
-- Implemented [ ] — Verified [ ] Idempotency
+- Implemented [x] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Description
+- Implemented [x] — Verified [ ] Amount
+- Implemented [x] — Verified [ ] Payment method
+- Implemented [x] — Verified [ ] Source account
+- Implemented [x] — Verified [ ] Atomic reversal
+- Implemented [x] — Verified [ ] Idempotency
 
 ## Service HP
-- Implemented [ ] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] List
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Customer
-- Implemented [ ] — Verified [ ] Device
-- Implemented [ ] — Verified [ ] Complaint
-- Implemented [ ] — Verified [ ] Cost
-- Implemented [ ] — Verified [ ] Entry date
-- Implemented [ ] — Verified [ ] Completion date
-- Implemented [ ] — Verified [ ] Masuk
-- Implemented [ ] — Verified [ ] Proses
-- Implemented [ ] — Verified [ ] Selesai
-- Implemented [ ] — Verified [ ] Diambil
+- Implemented [x] — Verified [ ] Customer
+- Implemented [x] — Verified [ ] Device
+- Implemented [x] — Verified [ ] Complaint
+- Implemented [x] — Verified [ ] Cost
+- Implemented [x] — Verified [ ] Entry date
+- Implemented [x] — Verified [ ] Completion date
+- Implemented [x] — Verified [ ] Masuk
+- Implemented [x] — Verified [ ] Proses
+- Implemented [x] — Verified [ ] Selesai
+- Implemented [x] — Verified [ ] Diambil
 
 ## Gaji
-- Implemented [ ] — Verified [ ] Admin only
-- Implemented [ ] — Verified [ ] Employee list
-- Implemented [ ] — Verified [ ] Rate
-- Implemented [ ] — Verified [ ] Daily salary
-- Implemented [ ] — Verified [ ] Automatic opening entry
-- Implemented [ ] — Verified [ ] Karyawan blocked
+- Implemented [x] — Verified [ ] Admin only
+- Implemented [x] — Verified [ ] Employee list
+- Implemented [x] — Verified [ ] Rate
+- Implemented [x] — Verified [ ] Daily salary
+- Implemented [x] — Verified [ ] Automatic opening entry
+- Implemented [x] — Verified [ ] Karyawan blocked
 
 ## Akun Uang
-- Implemented [ ] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Create
+- Implemented [x] — Verified [ ] List
+- Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Balance
-- Implemented [ ] — Verified [ ] Account source validation
+- Implemented [x] — Verified [ ] Balance
+- Implemented [x] — Verified [ ] Account source validation
 
 ## Laporan
-- Implemented [ ] — Verified [ ] Monthly
-- Implemented [ ] — Verified [ ] Yearly
-- Implemented [ ] — Verified [ ] Omzet
-- Implemented [ ] — Verified [ ] Laba
+- Implemented [x] — Verified [ ] Monthly
+- Implemented [x] — Verified [ ] Yearly
+- Implemented [x] — Verified [ ] Omzet
+- Implemented [x] — Verified [ ] Laba
 - Implemented [ ] — Verified [ ] Category recap
-- Implemented [ ] — Verified [ ] Kasbon
-- Implemented [ ] — Verified [ ] Expenses
-- Implemented [ ] — Verified [ ] Net
+- Implemented [x] — Verified [ ] Kasbon
+- Implemented [x] — Verified [ ] Expenses
+- Implemented [x] — Verified [ ] Net
 - Implemented [ ] — Verified [ ] Previous month comparison
 - Implemented [ ] — Verified [ ] 12-month breakdown
 - Implemented [ ] — Verified [ ] Best-selling category
-- Implemented [ ] — Verified [ ] CSV export
+- Implemented [x] — Verified [ ] CSV export
 - Implemented [ ] — Verified [ ] Print
-- Implemented [ ] — Verified [ ] Manual transaction
+- Implemented [x] — Verified [ ] Manual transaction
 
 ## Pengaturan
-- Implemented [ ] — Verified [ ] General settings
-- Implemented [ ] — Verified [ ] Website name
-- Implemented [ ] — Verified [ ] Theme
-- Implemented [ ] — Verified [ ] Classic
-- Implemented [ ] — Verified [ ] Paper
-- Implemented [ ] — Verified [ ] Dark
+- Implemented [x] — Verified [ ] General settings
+- Implemented [x] — Verified [ ] Website name
+- Implemented [x] — Verified [ ] Theme
+- Implemented [x] — Verified [ ] Classic
+- Implemented [x] — Verified [ ] Paper
+- Implemented [x] — Verified [ ] Dark
 - Implemented [ ] — Verified [ ] User management
 - Implemented [ ] — Verified [ ] Permission management
-- Implemented [ ] — Verified [ ] NotifHook
-- Implemented [ ] — Verified [ ] API key
-- Implemented [ ] — Verified [ ] Notification source
-- Implemented [ ] — Verified [ ] Account master
-- Implemented [ ] — Verified [ ] Audit log
+- Implemented [x] — Verified [ ] NotifHook
+- Implemented [x] — Verified [ ] API key
+- Implemented [x] — Verified [ ] Notification source
+- Implemented [x] — Verified [ ] Account master
+- Implemented [x] — Verified [ ] Audit log
 
 ## NotifHook
-- Implemented [ ] — Verified [ ] POST `/api/notifhook`
-- Implemented [ ] — Verified [ ] X-API-Key
-- Implemented [ ] — Verified [ ] Idempotency key
-- Implemented [ ] — Verified [ ] Auto-confirm transfer
-- Implemented [ ] — Verified [ ] No fake package matcher
+- Implemented [x] — Verified [ ] POST `/api/notifhook`
+- Implemented [x] — Verified [ ] X-API-Key
+- Implemented [x] — Verified [ ] Idempotency key
+- Implemented [x] — Verified [ ] Auto-confirm transfer
+- Implemented [x] — Verified [ ] No fake package matcher
 
 ## Audit
-- Implemented [ ] — Verified [ ] data_before
-- Implemented [ ] — Verified [ ] data_after
-- Implemented [ ] — Verified [ ] action
-- Implemented [ ] — Verified [ ] related table
-- Implemented [ ] — Verified [ ] user
-- Implemented [ ] — Verified [ ] Log viewer
+- Implemented [x] — Verified [ ] data_before
+- Implemented [x] — Verified [ ] data_after
+- Implemented [x] — Verified [ ] action
+- Implemented [x] — Verified [ ] related table
+- Implemented [x] — Verified [ ] user
+- Implemented [x] — Verified [ ] Log viewer
 
 ## Financial integrity
-- Implemented [ ] — Verified [ ] Transaction -> mutasi_saldo
-- Implemented [ ] — Verified [ ] Expense -> mutasi_saldo
-- Implemented [ ] — Verified [ ] Reports from backend
+- Implemented [x] — Verified [ ] Transaction -> mutasi_saldo
+- Implemented [x] — Verified [ ] Expense -> mutasi_saldo
+- Implemented [x] — Verified [ ] Reports from backend
 - Implemented [ ] — Verified [ ] No frontend financial calculation
-- Implemented [ ] — Verified [ ] Atomic reversal
-- Implemented [ ] — Verified [ ] Idempotency
-- Implemented [ ] — Verified [ ] Closed kasir protection
+- Implemented [x] — Verified [ ] Atomic reversal
+- Implemented [x] — Verified [ ] Idempotency
+- Implemented [x] — Verified [ ] Closed kasir protection

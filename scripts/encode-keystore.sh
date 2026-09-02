@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+#set -euo pipefail
 
-KEYSTORE="${1:-./irkop-cell-release.jks}"
+KEYSTORE="irkop-cell-release.jks"
 
 test -f "$KEYSTORE" || {
   echo "Keystore not found: $KEYSTORE" >&2

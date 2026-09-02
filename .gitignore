@@ -9,3 +9,8 @@ app/build/
 captures/
 .externalNativeBuild/
 .cxx/
+Docs/
+fix/
+*.bak
+*.sh
+.env

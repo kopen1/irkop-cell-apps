@@ -64,3 +64,7 @@ Optional production environment variable:
 - `API_BASE_URL` (defaults to `https://konter.irkop.workers.dev/api/v1/`)
 
 The keystore is never committed to Git. Keep the downloaded `.jks` backup offline and protected. Do not generate a replacement keystore for an existing app unless you intentionally plan a signing-key migration.
+
+### CI JVM compatibility
+
+Android Java and Kotlin compilation are explicitly aligned to JVM 17 using the Kotlin JVM toolchain and Android `compileOptions`, matching the GitHub Actions Java 17 environment.

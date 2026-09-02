@@ -57,6 +57,11 @@ android {
         }
     }
 
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -66,6 +71,7 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
 }
+
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.01.00"))
@@ -87,4 +93,9 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+}
+
+
+kotlin {
+    jvmToolchain(17)
 }

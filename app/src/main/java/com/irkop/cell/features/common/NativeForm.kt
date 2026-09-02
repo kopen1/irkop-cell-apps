@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ fun NativeTextField(
         modifier = modifier.fillMaxWidth(),
         enabled = enabled,
         singleLine = true,
+        shape = MaterialTheme.shapes.medium,
         keyboardOptions = if (numeric) {
             KeyboardOptions(keyboardType = KeyboardType.Number)
         } else {
@@ -37,7 +39,10 @@ fun NativeTextField(
 
 @Composable
 fun FormColumn(content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         content()
     }
 }

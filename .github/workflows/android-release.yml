@@ -1,6 +1,12 @@
 name: Android Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Production API base URL"
+        required: false
+        default: "https://konter.irkop.workers.dev/api/v1/"
   push:
     tags:
       - "v*"
@@ -9,8 +15,50 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  generate-keystore:
+    name: Generate keystore for local backup
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Generate release keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_PASSWORD" || { echo "::error::Set ANDROID_KEYSTORE_PASSWORD in the production environment first."; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::Set ANDROID_KEY_PASSWORD in the production environment first."; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "::error::Set ANDROID_KEY_ALIAS in the production environment first."; exit 1; }
+
+          keytool -genkeypair                 -v                 -keystore "$RUNNER_TEMP/irkop-cell-release.jks"                 -storepass "$KEYSTORE_PASSWORD"                 -alias "$KEY_ALIAS"                 -keypass "$KEY_PASSWORD"                 -keyalg RSA                 -keysize 4096                 -validity 10000                 -dname "CN=IRKOP CELL, OU=Mobile, O=IRKOP CELL, L=Indonesia, C=ID"
+
+          chmod 600 "$RUNNER_TEMP/irkop-cell-release.jks"
+          keytool -list                 -keystore "$RUNNER_TEMP/irkop-cell-release.jks"                 -storepass "$KEYSTORE_PASSWORD"                 -alias "$KEY_ALIAS"
+
+      - name: Upload keystore for local backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: irkop-cell-release-keystore
+          path: ${{ runner.temp }}/irkop-cell-release.jks
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Security reminder
+        run: |
+          echo "Download the keystore artifact and store it securely."
+          echo "Do NOT commit the .jks file to Git."
+          echo "After downloading, create ANDROID_KEYSTORE_BASE64 from this exact file."
+          echo "Then add it as the production secret ANDROID_KEYSTORE_BASE64."
+
+  release:
+    name: Build signed APK and AAB
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: production
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,21 +71,60 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
-      - name: Build release APK
+      - name: Validate release signing secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_BASE64. Generate/download the keystore first."; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "::error::Missing ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_ALIAS" || { echo "::error::Missing ANDROID_KEY_ALIAS"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "::error::Missing ANDROID_KEY_PASSWORD"; exit 1; }
+
+      - name: Restore Android signing keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/irkop-cell-release.jks"
+          chmod 600 "$RUNNER_TEMP/irkop-cell-release.jks"
+          test -s "$RUNNER_TEMP/irkop-cell-release.jks"
+
+      - name: Build signed release APK and AAB
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/irkop-cell-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           URL="${API_BASE_URL:-https://konter.irkop.workers.dev/api/v1/}"
-          gradle assembleRelease -PAPI_BASE_URL="$URL"
+          gradle clean assembleRelease bundleRelease -PAPI_BASE_URL="$URL"
 
-      - name: Upload release artifact
+      - name: Verify APK and AAB
+        run: |
+          set -euo pipefail
+          ls -lh app/build/outputs/apk/release/*.apk
+          ls -lh app/build/outputs/bundle/release/*.aab
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/*.apk
+
+      - name: Upload signed release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: irkop-cell-release-${{ github.ref_name }}
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: app/build/outputs/apk/release/*.apk
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab

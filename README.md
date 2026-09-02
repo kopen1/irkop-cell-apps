@@ -39,3 +39,28 @@ Production release signing is intentionally not hardcoded. Add Android signing s
 - Service HP create/update API declarations are wired.
 - Release workflow uses a deterministic Gradle version.
 - Release APK remains unsigned until a keystore is supplied through GitHub Secrets.
+
+## Signed Android Release
+
+Release signing is designed around a one-time GitHub-generated keystore.
+
+1. In GitHub, open **Actions → Android Release → Run workflow**.
+2. The workflow generates `irkop-cell-release.jks` using the production environment signing secrets and uploads it as a short-lived artifact.
+3. Download the artifact and store the `.jks` file securely as the master backup.
+4. Encode that exact file with `./scripts/encode-keystore.sh ./irkop-cell-release.jks`.
+5. Put the Base64 output into the production secret `ANDROID_KEYSTORE_BASE64`.
+6. Keep `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` in GitHub Secrets.
+7. Only after those four secrets are configured should you push a `v*` tag. The workflow then builds and verifies the signed APK and AAB and creates the GitHub Release.
+
+Required production environment secrets:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Optional production environment variable:
+
+- `API_BASE_URL` (defaults to `https://konter.irkop.workers.dev/api/v1/`)
+
+The keystore is never committed to Git. Keep the downloaded `.jks` backup offline and protected. Do not generate a replacement keystore for an existing app unless you intentionally plan a signing-key migration.

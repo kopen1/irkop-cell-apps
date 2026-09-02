@@ -238,18 +238,12 @@ private fun KasirScreen(repo: Repository) {
             onConfirm = {
                 val saldo = amount.toLongOrNull() ?: 0L
 
-                scope.launch {
-                    runCatching {
-                        repo.opening(
-                            listOf("Tunai Laci" to saldo)
-                        )
-                    }.onSuccess {
-                        opening = false
-                        vm.load { repo.kasirCurrent() }
-                    }.onFailure {
-                        opening = false
-                    }
+                vm.load {
+                    repo.opening(
+                        listOf("Tunai Laci" to saldo)
+                    )
                 }
+                opening = false
             },
             onCancel = {
                 opening = false
@@ -289,19 +283,13 @@ private fun KasirScreen(repo: Repository) {
                     onClick = {
                         val saldo = amount.toLongOrNull() ?: 0L
 
-                        scope.launch {
-                            runCatching {
-                                repo.closing(
-                                    listOf("Tunai Laci" to saldo),
-                                    note
-                                )
-                            }.onSuccess {
-                                closing = false
-                                vm.load { repo.kasirCurrent() }
-                            }.onFailure {
-                                closing = false
-                            }
+                        vm.load {
+                            repo.closing(
+                                listOf("Tunai Laci" to saldo),
+                                note
+                            )
                         }
+                        closing = false
                     }
                 ) {
                     Text("Simpan")
@@ -448,23 +436,18 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                             putJsonArray("items") {
                                 cart.forEach { item ->
                                     add(buildJsonObject {
-                                        put("produk_id", JsonPrimitive(item.product.long("id") ?: item.product.string("id") ?: ""))
-                                        put("qty", JsonPrimitive(item.qty))
+                                        put("produk_id", item.product.long("id") ?: 0L)
+                                        put("qty", item.qty)
                                     })
                                 }
                             }
-                            put("metode_bayar", JsonPrimitive(method))
-                            if (customerId.isNotBlank()) {
-                                val pelangganId = customerId.toLongOrNull()
-                                if (pelangganId != null) {
-                                    put("pelanggan_id", pelangganId)
-                                } else {
-                                    put("pelanggan_id", customerId)
-                                }
+                            put("metode_bayar", method)
+                            customerId.toLongOrNull()?.let {
+                                put("pelanggan_id", it)
                             }
                             if (receiverAccount.isNotBlank()) put("akun_penerima", receiverAccount.trim())
-                            put("manual_entry", JsonPrimitive(manual))
-                            if (manual) put("tanggal_transaksi", JsonPrimitive(date))
+                            put("manual_entry", manual)
+                            if (manual) put("tanggal_transaksi", date)
                         })
                     }.onSuccess { onDone() }
                         .onFailure { error = it.message ?: "Transaksi gagal" }

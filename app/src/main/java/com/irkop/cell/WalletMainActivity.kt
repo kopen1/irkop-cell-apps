@@ -24,10 +24,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.irkop.cell.core.ApiClient
 import com.irkop.cell.core.ApiError
 import com.irkop.cell.core.SessionManager
 import com.irkop.cell.core.UserSession
-import com.irkop.cell.data.ApiClient
 import com.irkop.cell.data.Repository
 import com.irkop.cell.ui.AppViewModel
 import kotlinx.coroutines.launch
@@ -36,9 +36,9 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val Rupiah = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply { maximumFractionDigits = 0 }
-private fun JsonObject.s(vararg keys: String): String = keys.firstNotNullOfOrNull { string(it)?.takeIf(String::isNotBlank) } ?: "-"
-private fun JsonObject.n(vararg keys: String): Long = keys.firstNotNullOfOrNull { long(it) } ?: 0L
-private fun JsonObject.rows(): List<JsonObject> = array("items")?.filterIsInstance<JsonObject>().orEmpty()
+private fun JsonObject.s(vararg keys: String): String = keys.firstNotNullOfOrNull { key -> this[key]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() } } ?: "-"
+private fun JsonObject.n(vararg keys: String): Long = keys.firstNotNullOfOrNull { key -> this[key]?.jsonPrimitive?.longOrNull } ?: 0L
+private fun JsonObject.rows(): List<JsonObject> = this["items"]?.jsonArray?.mapNotNull { it as? JsonObject }.orEmpty()
 private fun initials(value: String) = value.trim().split(" ").filter(String::isNotBlank).take(2).joinToString("") { it.first().uppercase() }.ifBlank { "IC" }
 
 class WalletMainActivity : ComponentActivity() {
@@ -83,30 +83,19 @@ private enum class WalletTab(val label: String, val icon: ImageVector) { HOME("H
 @Composable private fun WalletShell(user: UserSession, logout: () -> Unit, repo: Repository) {
     var tab by remember { mutableStateOf(WalletTab.HOME) }
     Scaffold(
-        topBar = {
-            if (tab != WalletTab.KASIR) TopAppBar(
-                title = { Column { Text("IRKOP CELL", fontWeight = FontWeight.Bold); Text(user.nama.ifBlank { user.username }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
-                navigationIcon = { IconButton({ tab = WalletTab.LAINNYA }) { Icon(Icons.Default.Menu, "Menu") } },
-                actions = { IconButton({}) { Icon(Icons.Default.NotificationsNone, "Notifikasi") }; IconButton(logout) { Icon(Icons.Default.Logout, "Keluar") } }
-            )
-        },
+        topBar = { if (tab != WalletTab.KASIR) TopAppBar(title = { Column { Text("IRKOP CELL", fontWeight = FontWeight.Bold); Text(user.nama.ifBlank { user.username }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } }, navigationIcon = { IconButton({ tab = WalletTab.LAINNYA }) { Icon(Icons.Default.Menu, "Menu") } }, actions = { IconButton({}) { Icon(Icons.Default.NotificationsNone, "Notifikasi") }; IconButton(logout) { Icon(Icons.Default.Logout, "Keluar") } }) },
         bottomBar = { NavigationBar { WalletTab.values().forEach { t -> NavigationBarItem(selected = tab == t, onClick = { tab = t }, icon = { Icon(t.icon, t.label) }, label = { Text(t.label) }) } } }
-    ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            when (tab) {
-                WalletTab.HOME -> WalletHome(repo, { tab = WalletTab.TRANSAKSI }, { tab = WalletTab.KASIR }, { tab = WalletTab.LAINNYA }, { tab = WalletTab.LAPORAN })
-                WalletTab.TRANSAKSI -> WalletTransactions(repo)
-                WalletTab.KASIR -> WalletCashier(repo)
-                WalletTab.LAPORAN -> ParityExtrasScreen(user, repo)
-                WalletTab.LAINNYA -> ParityExtrasScreen(user, repo)
-            }
-        }
-    }
+    ) { padding -> Box(Modifier.fillMaxSize().padding(padding)) { when (tab) {
+        WalletTab.HOME -> WalletHome(repo, { tab = WalletTab.TRANSAKSI }, { tab = WalletTab.KASIR }, { tab = WalletTab.LAINNYA }, { tab = WalletTab.LAPORAN })
+        WalletTab.TRANSAKSI -> WalletTransactions(repo)
+        WalletTab.KASIR -> WalletCashier(repo)
+        WalletTab.LAPORAN, WalletTab.LAINNYA -> ParityExtrasScreen(user, repo)
+    } } }
 }
 
 @Composable private fun WalletHome(repo: Repository, tx: () -> Unit, kasir: () -> Unit, other: () -> Unit, report: () -> Unit) {
     var data by remember { mutableStateOf<JsonObject?>(null) }; var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) { runCatching { repo.transaksi() }.onSuccess { data = it }.also { loading = false } }
+    LaunchedEffect(Unit) { runCatching { repo.transaksi() }.onSuccess { data = it }; loading = false }
     val rows = data?.rows().orEmpty(); val balance = data?.n("total_nilai", "total_omzet", "omzet") ?: rows.sumOf { it.n("total", "nominal", "grand_total") }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
         item { Text("Selamat datang 👋", style = MaterialTheme.typography.titleLarge); Text("Kelola transaksi dan kas toko dengan cepat", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -114,24 +103,12 @@ private enum class WalletTab(val label: String, val icon: ImageVector) { HOME("H
         item { Text("Akses Cepat", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Shortcut("Transaksi", Icons.Default.ReceiptLong, tx); Shortcut("Kasir", Icons.Default.PointOfSale, kasir); Shortcut("Kasbon", Icons.Default.AccountBalanceWallet, other); Shortcut("Laporan", Icons.Default.Assessment, report); Shortcut("Lainnya", Icons.Default.GridView, other) } }
         item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("Aktivitas Terbaru", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); TextButton(tx) { Text("Lihat semua") } } }
-        if (loading) item { Box(Modifier.fillMaxWidth().padding(30.dp), Alignment.Center) { CircularProgressIndicator() } }
-        else if (rows.isEmpty()) item { EmptyWallet() }
-        else items(rows.take(8)) { ActivityRow(it) }
+        if (loading) item { Box(Modifier.fillMaxWidth().padding(30.dp), Alignment.Center) { CircularProgressIndicator() } } else if (rows.isEmpty()) item { EmptyWallet() } else items(rows.take(8)) { ActivityRow(it) }
     }
 }
 
-@Composable private fun BalanceCard(balance: Long, count: Int) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-        Column(Modifier.background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer))).padding(22.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Saldo / Omzet", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.bodyMedium); Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.onPrimary) }
-            Spacer(Modifier.height(8.dp)); Text(Rupiah.format(balance), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(16.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("$count transaksi", color = MaterialTheme.colorScheme.onPrimary); Text("Hari ini", color = MaterialTheme.colorScheme.onPrimary) }
-        }
-    }
-}
-
+@Composable private fun BalanceCard(balance: Long, count: Int) { Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) { Column(Modifier.background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer))).padding(22.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Saldo / Omzet", color = MaterialTheme.colorScheme.onPrimary); Icon(Icons.Default.Visibility, null, tint = MaterialTheme.colorScheme.onPrimary) }; Spacer(Modifier.height(8.dp)); Text(Rupiah.format(balance), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Spacer(Modifier.height(16.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("$count transaksi", color = MaterialTheme.colorScheme.onPrimary); Text("Hari ini", color = MaterialTheme.colorScheme.onPrimary) } } } }
 @Composable private fun Shortcut(label: String, icon: ImageVector, onClick: () -> Unit) { Column(Modifier.width(60.dp), horizontalAlignment = Alignment.CenterHorizontally) { FilledTonalIconButton(onClick, Modifier.size(48.dp)) { Icon(icon, label) }; Spacer(Modifier.height(5.dp)); Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1) } }
-
 @Composable private fun ActivityRow(x: JsonObject) { val name = x.s("pelanggan_nama", "pelanggan", "nama"); Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer), Alignment.Center) { Text(initials(name), color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(name, fontWeight = FontWeight.SemiBold); Text(x.s("created_at", "tanggal", "waktu"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(Rupiah.format(x.n("total", "nominal", "grand_total")), fontWeight = FontWeight.Bold) } } }
 @Composable private fun EmptyWallet() { Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.Inbox, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp)); Text("Belum ada transaksi", style = MaterialTheme.typography.titleMedium); Text("Transaksi baru akan muncul di sini", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
 
@@ -149,6 +126,4 @@ private enum class WalletTab(val label: String, val icon: ImageVector) { HOME("H
     if (add) ModernCheckoutDialog(repo, { add = false; reload() }, { add = false })
 }
 
-@Composable private fun WalletCashier(repo: Repository) { var open by remember { mutableStateOf(false) }; Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) { Text("Kasir", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) { Column(Modifier.padding(20.dp)) { Icon(Icons.Default.PointOfSale, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp)); Spacer(Modifier.height(10.dp)); Text("Mulai transaksi penjualan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Pilih produk, jumlah, pelanggan dan metode pembayaran.", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(16.dp)); Button({ open = true }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Transaksi Baru") } } } }
-    if (open) ModernCheckoutDialog(repo, { open = false }, { open = false })
-}
+@Composable private fun WalletCashier(repo: Repository) { var open by remember { mutableStateOf(false) }; Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) { Text("Kasir", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold); Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp)) { Column(Modifier.padding(20.dp)) { Icon(Icons.Default.PointOfSale, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp)); Spacer(Modifier.height(10.dp)); Text("Mulai transaksi penjualan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Pilih produk, jumlah, pelanggan dan metode pembayaran.", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(16.dp)); Button({ open = true }, Modifier.fillMaxWidth().height(52.dp)) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Transaksi Baru") } } } }; if (open) ModernCheckoutDialog(repo, { open = false }, { open = false }) }

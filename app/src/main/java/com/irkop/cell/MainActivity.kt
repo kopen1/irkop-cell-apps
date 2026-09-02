@@ -1027,6 +1027,7 @@ private fun TransaksiScreen(repo: Repository) {
     val scope = rememberCoroutineScope()
 
     var create by remember { mutableStateOf(false) }
+    var edit by remember { mutableStateOf<JsonObject?>(null) }
     var detail by remember { mutableStateOf<JsonObject?>(null) }
 
     var q by remember { mutableStateOf("") }
@@ -1266,12 +1267,30 @@ private fun TransaksiScreen(repo: Repository) {
         TransactionDetailDialog(
             repo = repo,
             data = d,
+            onEdit = {
+                edit = d
+                detail = null
+            },
             onDone = {
                 detail = null
                 load()
             },
             onCancel = {
                 detail = null
+            }
+        )
+    }
+
+    edit?.let { d ->
+        TransactionEditDialog(
+            repo = repo,
+            data = d,
+            onDone = {
+                edit = null
+                load()
+            },
+            onCancel = {
+                edit = null
             }
         )
     }
@@ -1340,6 +1359,7 @@ private fun TransactionCard(
 private fun TransactionDetailDialog(
     repo: Repository,
     data: JsonObject,
+    onEdit: () -> Unit,
     onDone: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -1424,6 +1444,12 @@ private fun TransactionDetailDialog(
             if (!deleting) {
                 Row {
                     TextButton(
+                        onClick = onEdit
+                    ) {
+                        Text("Edit")
+                    }
+
+                    TextButton(
                         onClick = {
                             deleting = true
                         }
@@ -1487,6 +1513,512 @@ private fun TransactionDetailDialog(
             }
         }
     )
+}
+
+
+@Composable
+private fun TransactionEditDialog(
+    repo: Repository,
+    data: JsonObject,
+    onDone: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+
+    var products by remember {
+        mutableStateOf<List<JsonObject>>(emptyList())
+    }
+
+    var cart by remember {
+        mutableStateOf<List<CartItem>>(emptyList())
+    }
+
+    var method by remember {
+        mutableStateOf(
+            data.text(
+                "metode_bayar",
+                "metode"
+            )
+        )
+    }
+
+    var customerId by remember {
+        mutableStateOf(
+            data.text(
+                "pelanggan_id",
+                "customer_id"
+            ).takeIf { it != "-" } ?: ""
+        )
+    }
+
+    var receiver by remember {
+        mutableStateOf(
+            data.text(
+                "akun_penerima",
+                "akun_penerima_nama"
+            ).takeIf { it != "-" } ?: ""
+        )
+    }
+
+    var busy by remember {
+        mutableStateOf(false)
+    }
+
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var picker by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(Unit) {
+        runCatching {
+            repo.produk()
+        }.onSuccess { response ->
+            products = response.items()
+
+            val existing = data.array("items")
+                ?.filterIsInstance<JsonObject>()
+                ?: emptyList()
+
+            cart = existing.mapNotNull { item ->
+                val productId = item.string("produk_id")
+                    ?: item.string("id")
+                    ?: return@mapNotNull null
+
+                val product = products.firstOrNull {
+                    it.text("id") == productId
+                } ?: buildJsonObject {
+                    put("id", productId)
+                    put(
+                        "nama",
+                        item.text(
+                            "nama_produk_snapshot",
+                            "nama_produk",
+                            "nama"
+                        )
+                    )
+                    put(
+                        "harga",
+                        item.number(
+                            "harga_snapshot",
+                            "harga",
+                            "harga_jual"
+                        )
+                    )
+                }
+
+                CartItem(
+                    product = product,
+                    qty = item.number(
+                        "qty"
+                    ).toInt().coerceAtLeast(1)
+                )
+            }
+        }.onFailure {
+            error = ApiError.message(it)
+        }
+    }
+
+    val total = cart.sumOf {
+        it.product.number("harga") * it.qty
+    }
+
+    AlertDialog(
+        onDismissRequest = {
+            if (!busy) onCancel()
+        },
+        title = {
+            Text("Edit Transaksi")
+        },
+        text = {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.heightIn(max = 560.dp)
+            ) {
+                item {
+                    Text(
+                        "ID: ${data.text("id")}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                item {
+                    Text(
+                        "Keranjang",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                if (cart.isEmpty()) {
+                    item {
+                        EmptyBox("Tidak ada item transaksi.")
+                    }
+                }
+
+                items(cart) { item ->
+                    Card {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween,
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Column(
+                                Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    item.product.text(
+                                        "nama"
+                                    )
+                                )
+
+                                Text(
+                                    "${money(item.product.number("harga"))} × ${item.qty}"
+                                )
+                            }
+
+                            Row {
+                                IconButton(
+                                    onClick = {
+                                        cart = cart.mapNotNull { current ->
+                                            if (
+                                                current.product.text("id") ==
+                                                item.product.text("id")
+                                            ) {
+                                                val next = current.qty - 1
+
+                                                if (next > 0) {
+                                                    current.copy(
+                                                        qty = next
+                                                    )
+                                                } else {
+                                                    null
+                                                }
+                                            } else {
+                                                current
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Remove,
+                                        contentDescription = "Kurangi"
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        cart = cart.map { current ->
+                                            if (
+                                                current.product.text("id") ==
+                                                item.product.text("id")
+                                            ) {
+                                                current.copy(
+                                                    qty = current.qty + 1
+                                                )
+                                            } else {
+                                                current
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Tambah"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = {
+                            picker = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("TAMBAH / GANTI PRODUK")
+                    }
+                }
+
+                item {
+                    InfoCard(
+                        "Total",
+                        money(total)
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = customerId,
+                        onValueChange = {
+                            customerId =
+                                it.filter(Char::isDigit)
+                        },
+                        label = {
+                            Text("Pelanggan ID")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+
+                item {
+                    Text(
+                        "Metode pembayaran",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+
+                    Row(
+                        horizontalArrangement =
+                            Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            "" to "Tidak diubah",
+                            "tunai" to "Tunai",
+                            "transfer" to "Transfer",
+                            "bon" to "Bon",
+                            "cash_tunai" to "Cash"
+                        ).forEach { (value, label) ->
+                            FilterChip(
+                                selected = method == value,
+                                onClick = {
+                                    method = value
+                                },
+                                label = {
+                                    Text(label)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (method == "transfer") {
+                    item {
+                        OutlinedTextField(
+                            value = receiver,
+                            onValueChange = {
+                                receiver = it
+                            },
+                            label = {
+                                Text("Akun penerima")
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                    }
+                }
+
+                error?.let { message ->
+                    item {
+                        ErrorBox(message)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = !busy && cart.isNotEmpty(),
+                onClick = {
+                    if (total <= 0) {
+                        error =
+                            "Total transaksi harus lebih dari 0."
+                        return@Button
+                    }
+
+                    if (
+                        method == "transfer" &&
+                        receiver.isBlank()
+                    ) {
+                        error =
+                            "Akun penerima wajib."
+                        return@Button
+                    }
+
+                    if (
+                        method == "bon" &&
+                        customerId.toLongOrNull() == null
+                    ) {
+                        error =
+                            "Pelanggan wajib untuk bon."
+                        return@Button
+                    }
+
+                    val id = data.text("id")
+
+                    if (id == "-") {
+                        error =
+                            "ID transaksi tidak ditemukan."
+                        return@Button
+                    }
+
+                    busy = true
+
+                    scope.launch {
+                        runCatching {
+                            repo.updateTransaksi(
+                                id,
+                                buildJsonObject {
+                                    putJsonArray("items") {
+                                        cart.forEach { item ->
+                                            add(
+                                                buildJsonObject {
+                                                    put(
+                                                        "produk_id",
+                                                        item.product["id"]
+                                                            ?: JsonNull
+                                                    )
+                                                    put(
+                                                        "qty",
+                                                        item.qty
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    if (method.isNotBlank()) {
+                                        put(
+                                            "metode_bayar",
+                                            method
+                                        )
+                                    }
+
+                                    customerId
+                                        .toLongOrNull()
+                                        ?.let {
+                                            put(
+                                                "pelanggan_id",
+                                                it
+                                            )
+                                        }
+
+                                    if (
+                                        method == "transfer" &&
+                                        receiver.isNotBlank()
+                                    ) {
+                                        put(
+                                            "akun_penerima",
+                                            receiver.trim()
+                                        )
+                                    }
+                                }
+                            )
+                        }.onSuccess {
+                            onDone()
+                        }.onFailure {
+                            error = ApiError.message(it)
+                        }
+
+                        busy = false
+                    }
+                }
+            ) {
+                Text(
+                    if (busy) {
+                        "Memproses..."
+                    } else {
+                        "SIMPAN PERUBAHAN"
+                    }
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                enabled = !busy,
+                onClick = onCancel
+            ) {
+                Text("Batal")
+            }
+        }
+    )
+
+    if (picker) {
+        AlertDialog(
+            onDismissRequest = {
+                picker = false
+            },
+            title = {
+                Text("Pilih Produk")
+            },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.heightIn(
+                        max = 420.dp
+                    )
+                ) {
+                    items(products) { product ->
+                        TextButton(
+                            onClick = {
+                                val id =
+                                    product.text("id")
+
+                                val existing =
+                                    cart.firstOrNull {
+                                        it.product.text("id") == id
+                                    }
+
+                                cart =
+                                    if (existing == null) {
+                                        cart + CartItem(
+                                            product,
+                                            1
+                                        )
+                                    } else {
+                                        cart.map {
+                                            if (
+                                                it.product.text("id") == id
+                                            ) {
+                                                it.copy(
+                                                    qty = it.qty + 1
+                                                )
+                                            } else {
+                                                it
+                                            }
+                                        }
+                                    }
+
+                                picker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement =
+                                    Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    product.text("nama")
+                                )
+
+                                Text(
+                                    money(
+                                        product.number("harga")
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        picker = false
+                    }
+                ) {
+                    Text("Tutup")
+                }
+            }
+        )
+    }
 }
 
 @Composable

@@ -50,7 +50,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] Payment filter
 - Implemented [x] — Verified [ ] Confirmation filter
 - Implemented [x] — Verified [ ] Detail
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [x] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Atomic reversal
 - Implemented [x] — Verified [ ] Receipt
@@ -73,7 +73,7 @@ Source of truth:
 - Implemented [ ] — Verified [ ] Search
 - Implemented [ ] — Verified [ ] Filter
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Category
 - Implemented [ ] — Verified [ ] Selling price

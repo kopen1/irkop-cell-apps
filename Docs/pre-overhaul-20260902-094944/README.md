@@ -7,7 +7,7 @@ Default:
 `https://konter.irkop.workers.dev/api/`
 
 Override in CI:
-`gradle assembleDebug -PAPI_BASE_URL=https://example/api/`
+`gradle assembleDebug -PAPI_BASE_URL=https://example/api/v1/`
 
 ## Implemented in this sprint
 - JWT login/session persistence

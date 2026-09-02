@@ -1,46 +1,100 @@
-name: Android Build
+name: Android Test Only
 
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build Debug APK
+  test:
+    name: Android tests - TEST ONLY
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
-          cache: gradle
+          java-version: '17'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Make Gradle executable
-        run: chmod +x ./gradlew
+      - name: Verify API base URL
+        shell: bash
+        run: |
+          set -e
 
-      - name: Build
-        env:
-          API_BASE_URL: https://konter.irkop.workers.dev/api/
-        run: ./gradlew assembleDebug -PAPI_BASE_URL="$API_BASE_URL"
+          if grep -RIn \
+            --exclude-dir=.git \
+            --exclude-dir=Docs \
+            --exclude-dir=fix \
+            'konter.irkop.workers.dev/api/v1' \
+            app .github README.md; then
+            echo "ERROR: production source masih menggunakan /api/v1."
+            exit 1
+          fi
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: irkop-cell-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          echo "API base URL PASS."
+
+      - name: Verify forbidden APK build commands
+        shell: bash
+        run: |
+          set -e
+
+          if grep -RInE \
+            --exclude-dir=.git \
+            '(^|[^A-Za-z])(assembleDebug|assembleRelease|bundleRelease)([^A-Za-z]|$)' \
+            .github/workflows; then
+            echo "ERROR: workflow masih mengandung perintah APK build."
+            exit 1
+          fi
+
+          echo "No APK build command PASS."
+
+      - name: Verify source structure
+        shell: bash
+        run: |
+          set -e
+
+          test -f app/src/main/java/com/irkop/cell/data/ApiService.kt
+          test -f app/src/main/java/com/irkop/cell/data/Repository.kt
+          test -f app/src/main/java/com/irkop/cell/MainActivity.kt
+
+          echo "Source structure PASS."
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -e
+          ./gradlew test
+
+      - name: Run lint
+        shell: bash
+        run: |
+          set -e
+          ./gradlew lint
+
+      - name: Verify no APK artifact
+        shell: bash
+        run: |
+          set -e
+
+          if find . \
+            -path './.git' -prune -o \
+            -type f \
+            \( -name '*.apk' -o -name '*.aab' \) \
+            -print \
+            | grep -q .; then
+            echo "ERROR: APK/AAB ditemukan."
+            exit 1
+          fi
+
+          echo "TEST ONLY confirmed."

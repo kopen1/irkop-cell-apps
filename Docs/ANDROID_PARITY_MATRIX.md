@@ -89,14 +89,14 @@ Source of truth:
 - Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
 - Implemented [x] — Verified [ ] Delete
-- Implemented [ ] — Verified [ ] Detail
-- Implemented [ ] — Verified [ ] Purchase history
-- Implemented [ ] — Verified [ ] Merge
+- Implemented [x] — Verified [ ] Detail
+- Implemented [x] — Verified [ ] Purchase history
+- Implemented [x] — Verified [ ] Merge
 - Implemented [x] — Verified [ ] Loyal customer ranking
 
 ## Kasbon
 - Implemented [x] — Verified [ ] List
-- Implemented [ ] — Verified [ ] Detail
+- Implemented [x] — Verified [ ] Detail
 - Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
@@ -157,9 +157,9 @@ Source of truth:
 - Implemented [x] — Verified [ ] Kasbon
 - Implemented [x] — Verified [ ] Expenses
 - Implemented [x] — Verified [ ] Net
-- Implemented [ ] — Verified [ ] Previous month comparison
-- Implemented [ ] — Verified [ ] 12-month breakdown
-- Implemented [ ] — Verified [ ] Best-selling category
+- Implemented [x] — Verified [ ] Previous month comparison
+- Implemented [x] — Verified [ ] 12-month breakdown
+- Implemented [x] — Verified [ ] Best-selling category
 - Implemented [x] — Verified [ ] CSV export
 - Implemented [ ] — Verified [ ] Print
 - Implemented [x] — Verified [ ] Manual transaction
@@ -171,8 +171,8 @@ Source of truth:
 - Implemented [x] — Verified [ ] Classic
 - Implemented [x] — Verified [ ] Paper
 - Implemented [x] — Verified [ ] Dark
-- Implemented [ ] — Verified [ ] User management
-- Implemented [ ] — Verified [ ] Permission management
+- Implemented [x] — Verified [ ] User management
+- Implemented [x] — Verified [ ] Permission management
 - Implemented [x] — Verified [ ] NotifHook
 - Implemented [x] — Verified [ ] API key
 - Implemented [x] — Verified [ ] Notification source

@@ -204,7 +204,8 @@ private fun MainScaffold(
         Triple(AuthPolicy.DASHBOARD, "Dashboard", Icons.Default.Home),
         Triple(AuthPolicy.TRANSAKSI, "Transaksi", Icons.Default.ReceiptLong),
         Triple(AuthPolicy.KASIR, "Kasir", Icons.Default.PointOfSale),
-        Triple(AuthPolicy.LAPORAN, "Laporan", Icons.Default.Assessment)
+        Triple(AuthPolicy.LAPORAN, "Laporan", Icons.Default.Assessment),
+        Triple("lainnya", "Lainnya", Icons.Default.MoreHoriz)
     )
 
     val destinations = allDestinations.filter { (route, _, _) ->
@@ -295,6 +296,9 @@ private fun MainScaffold(
                 } else {
                     AccessDeniedScreen()
                 }
+            }
+            composable("lainnya") {
+                ParityExtrasScreen(user, repo)
             }
         }
     }

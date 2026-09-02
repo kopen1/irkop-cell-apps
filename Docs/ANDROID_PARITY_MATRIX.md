@@ -42,7 +42,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] Bon
 - Implemented [x] — Verified [ ] Cash Tunai
 - Implemented [x] — Verified [ ] Transfer receiver account
-- Implemented [ ] — Verified [ ] Transfer pending confirmation
+- Implemented [x] — Verified [ ] Transfer pending confirmation
 - Implemented [x] — Verified [ ] Bon customer
 - Implemented [x] — Verified [ ] Single-date filter
 - Implemented [x] — Verified [ ] Date-range filter
@@ -86,7 +86,7 @@ Source of truth:
 - Implemented [ ] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Search
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Detail
 - Implemented [ ] — Verified [ ] Purchase history
@@ -97,7 +97,7 @@ Source of truth:
 - Implemented [ ] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Detail
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Belum lunas
 - Implemented [ ] — Verified [ ] Lunas
@@ -106,7 +106,7 @@ Source of truth:
 ## Pengeluaran
 - Implemented [ ] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Description
 - Implemented [ ] — Verified [ ] Amount
@@ -118,7 +118,7 @@ Source of truth:
 ## Service HP
 - Implemented [ ] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Customer
 - Implemented [ ] — Verified [ ] Device
@@ -142,7 +142,7 @@ Source of truth:
 ## Akun Uang
 - Implemented [ ] — Verified [ ] List
 - Implemented [ ] — Verified [ ] Create
-- Implemented [ ] — Verified [ ] Edit
+- Implemented [x] — Verified [ ] Edit
 - Implemented [ ] — Verified [ ] Delete
 - Implemented [ ] — Verified [ ] Balance
 - Implemented [ ] — Verified [ ] Account source validation

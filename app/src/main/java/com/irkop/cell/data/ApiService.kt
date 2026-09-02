@@ -78,6 +78,12 @@ interface ApiService {
         @Query("reason") reason: String? = null
     ): JsonObject
 
+    @PUT("transaksi/{id}/konfirmasi")
+    suspend fun updateTransaksiKonfirmasi(
+        @Path("id") id: String,
+        @Body body: JsonObject
+    ): JsonObject
+
     // ========================================================
     // PRODUK
     // ========================================================

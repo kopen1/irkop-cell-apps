@@ -141,6 +141,17 @@ class Repository(
     ) =
         api.deleteTransaksi(id, reason)
 
+    suspend fun updateTransaksiKonfirmasi(
+        id: String,
+        status: String
+    ) =
+        api.updateTransaksiKonfirmasi(
+            id,
+            buildJsonObject {
+                put("konfirmasi_pembayaran", status)
+            }
+        )
+
     // ========================================================
     // PRODUK
     // ========================================================

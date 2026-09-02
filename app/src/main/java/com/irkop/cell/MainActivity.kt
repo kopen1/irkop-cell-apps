@@ -1369,6 +1369,20 @@ private fun TransactionDetailDialog(
     var deleting by remember { mutableStateOf(false) }
     var reason by remember { mutableStateOf("") }
 
+    var confirmation by remember {
+        mutableStateOf(
+            data.text(
+                "konfirmasi_pembayaran",
+                "status_konfirmasi"
+            ).let {
+                if (it == "-") "menunggu" else it
+            }
+        )
+    }
+
+    var savingConfirmation by remember { mutableStateOf(false) }
+    var confirmationMessage by remember { mutableStateOf<String?>(null) }
+
     AlertDialog(
         onDismissRequest = onCancel,
         title = {
@@ -1400,6 +1414,96 @@ private fun TransactionDetailDialog(
                     Text(
                         "Metode: ${data.text("metode_bayar", "metode")}"
                     )
+                }
+
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            "Status konfirmasi pembayaran",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+
+                        Text(
+                            when (confirmation) {
+                                "menunggu" -> "Menunggu"
+                                "otomatis" -> "Otomatis"
+                                "manual" -> "Manual"
+                                "tidak_perlu" -> "Tidak Perlu"
+                                else -> confirmation
+                            },
+                            style = MaterialTheme.typography.bodySmall
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            listOf(
+                                "menunggu" to "Menunggu",
+                                "otomatis" to "Otomatis",
+                                "manual" to "Manual",
+                                "tidak_perlu" to "Tidak Perlu"
+                            ).forEach { (value, label) ->
+                                FilterChip(
+                                    selected = confirmation == value,
+                                    onClick = {
+                                        confirmation = value
+                                        confirmationMessage = null
+                                    },
+                                    label = {
+                                        Text(label)
+                                    }
+                                )
+                            }
+                        }
+
+                        Button(
+                            enabled = !savingConfirmation,
+                            onClick = {
+                                val id = data.text("id")
+
+                                if (id.isBlank() || id == "-") {
+                                    confirmationMessage = "ID transaksi tidak tersedia."
+                                } else {
+                                    scope.launch {
+                                        savingConfirmation = true
+                                        confirmationMessage = null
+
+                                        runCatching {
+                                            repo.updateTransaksiKonfirmasi(
+                                                id,
+                                                confirmation
+                                            )
+                                        }.onSuccess {
+                                            confirmationMessage =
+                                                "Status konfirmasi berhasil disimpan."
+                                        }.onFailure { error ->
+                                            confirmationMessage =
+                                                error.message ?: "Gagal menyimpan status konfirmasi."
+                                        }
+
+                                        savingConfirmation = false
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(
+                                if (savingConfirmation) {
+                                    "MENYIMPAN..."
+                                } else {
+                                    "SIMPAN KONFIRMASI"
+                                }
+                            )
+                        }
+
+                        confirmationMessage?.let {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
                 }
 
                 item {

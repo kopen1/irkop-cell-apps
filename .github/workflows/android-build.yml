@@ -52,6 +52,7 @@ jobs:
 
           if grep -RInE \
             --exclude-dir=.git \
+            --exclude='android-build.yml' \
             '(^|[^A-Za-z])(assembleDebug|assembleRelease|bundleRelease)([^A-Za-z]|$)' \
             .github/workflows; then
             echo "ERROR: workflow masih mengandung perintah APK build."

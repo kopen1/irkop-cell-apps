@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.irkop.cell.data.Repository
+import com.irkop.cell.data.obj
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 

@@ -13,6 +13,7 @@ import com.irkop.cell.core.SessionManager
 import com.irkop.cell.data.Repository
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -58,7 +59,6 @@ class LiveCrudE2ETest {
         check("transaksi/filter-date") { repo.transaksi(tanggal = today) }
         check("transaksi/filter-range") { repo.transaksi(tanggalMulai = today, tanggalSelesai = today) }
         check("kasbon/list") { repo.kasbon() }
-        check("kasbon/belum-lunas") { repo.kasbon().also { repo.kasbon() } }
         check("pengeluaran/list") { repo.pengeluaran() }
         check("service-hp/list") { repo.serviceHp() }
         check("gaji/list") { repo.gaji() }
@@ -97,7 +97,6 @@ class LiveCrudE2ETest {
                     put("nama", "E2E Kategori ${suffix}U")
                     put("lacak_stok", true)
                 })
-                repo.deleteKategori(id)
             }
 
             check("produk/CRUD") {
@@ -120,13 +119,13 @@ class LiveCrudE2ETest {
                 repo.updateProduk(id, buildJsonObject {
                     put("kode", "E2E-$suffix")
                     put("nama", "E2E Produk ${suffix}U")
+                    categoryId?.toLongOrNull()?.let { put("kategori_id", it) }
                     put("harga", 12000)
                     put("harga_modal", 7000)
                     put("stok", 9)
                     put("stok_minimum", 1)
                     put("satuan", "pcs")
                 })
-                repo.deleteProduk(id)
             }
 
             check("pelanggan/CRUD") {
@@ -146,7 +145,6 @@ class LiveCrudE2ETest {
                     put("nama", "E2E Pelanggan ${suffix}U")
                     put("telepon", "0813$suffix")
                 })
-                repo.deletePelanggan(id)
             }
 
             check("akun/CRUD") {
@@ -159,12 +157,12 @@ class LiveCrudE2ETest {
                 accountId = created.findId()
                 assertNotNull("POST akun tidak mengembalikan id", accountId)
                 val id = requireNotNull(accountId)
+                repo.akun()
                 repo.updateAkun(id, buildJsonObject {
                     put("nama_akun", "E2E Account ${suffix}U")
                     put("tipe", "lainnya")
                     put("aktif", true)
                 })
-                repo.deleteAkun(id)
             }
 
             val currentKasir = repo.kasirCurrent()
@@ -182,11 +180,15 @@ class LiveCrudE2ETest {
 
             check("transaksi/CRUD") {
                 val product = requireNotNull(productId) { "produk test tidak tersedia" }
+                val productNumericId = product.toLongOrNull()
+                    ?: error("ID produk bukan angka: $product")
                 val created = repo.createTransaksi(
                     buildJsonObject {
-                        putJsonArrayCompat("items", buildJsonObject {
-                            put("produk_id", product.toLong())
-                            put("qty", 1)
+                        put("items", buildJsonArray {
+                            add(buildJsonObject {
+                                put("produk_id", productNumericId)
+                                put("qty", 1)
+                            })
                         })
                         put("metode_bayar", "tunai")
                     }
@@ -196,20 +198,23 @@ class LiveCrudE2ETest {
                 val id = requireNotNull(transactionId)
                 repo.transaksiDetail(id)
                 repo.updateTransaksi(id, buildJsonObject {
-                    putJsonArrayCompat("items", buildJsonObject {
-                        put("produk_id", product.toLong())
-                        put("qty", 1)
+                    put("items", buildJsonArray {
+                        add(buildJsonObject {
+                            put("produk_id", productNumericId)
+                            put("qty", 1)
+                        })
                     })
                     put("metode_bayar", "tunai")
                 })
-                repo.deleteTransaksi(id, "E2E cleanup")
             }
 
             check("kasbon/CRUD") {
                 val customer = requireNotNull(customerId) { "pelanggan test tidak tersedia" }
+                val customerNumericId = customer.toLongOrNull()
+                    ?: error("ID pelanggan bukan angka: $customer")
                 val created = repo.createKasbon(
                     buildJsonObject {
-                        put("pelanggan_id", customer.toLong())
+                        put("pelanggan_id", customerNumericId)
                         put("nominal", 15000)
                         put("tanggal", today)
                         put("jatuh_tempo", today)
@@ -220,13 +225,12 @@ class LiveCrudE2ETest {
                 assertNotNull("POST kasbon tidak mengembalikan id", kasbonId)
                 val id = requireNotNull(kasbonId)
                 repo.updateKasbon(id, buildJsonObject {
-                    put("pelanggan_id", customer.toLong())
+                    put("pelanggan_id", customerNumericId)
                     put("nominal", 16000)
                     put("tanggal", today)
                     put("jatuh_tempo", today)
                     put("catatan", "E2E update")
                 })
-                repo.deleteKasbon(id, "E2E cleanup")
             }
 
             check("pengeluaran/CRUD") {
@@ -252,14 +256,15 @@ class LiveCrudE2ETest {
                     put("akun_sumber", "Tunai Laci")
                     put("tanggal", today)
                 })
-                repo.deletePengeluaran(id, "E2E cleanup")
             }
 
             check("service-hp/CRUD") {
                 val customer = requireNotNull(customerId) { "pelanggan test tidak tersedia" }
+                val customerNumericId = customer.toLongOrNull()
+                    ?: error("ID pelanggan bukan angka: $customer")
                 val created = repo.createServiceHp(
                     buildJsonObject {
-                        put("pelanggan_id", customer.toLong())
+                        put("pelanggan_id", customerNumericId)
                         put("nama_device", "E2E Android $suffix")
                         put("deskripsi_kerusakan", "E2E test")
                         put("status", "masuk")
@@ -271,14 +276,13 @@ class LiveCrudE2ETest {
                 assertNotNull("POST service-hp tidak mengembalikan id", serviceId)
                 val id = requireNotNull(serviceId)
                 repo.updateServiceHp(id, buildJsonObject {
-                    put("pelanggan_id", customer.toLong())
+                    put("pelanggan_id", customerNumericId)
                     put("nama_device", "E2E Android ${suffix}U")
                     put("deskripsi_kerusakan", "E2E update")
                     put("status", "proses")
                     put("estimasi_biaya", 26000)
                     put("tanggal_masuk", today)
                 })
-                repo.deleteServiceHp(id)
             }
         } finally {
             runCatching { transactionId?.let { repo.deleteTransaksi(it, "E2E cleanup") } }
@@ -288,6 +292,7 @@ class LiveCrudE2ETest {
             runCatching { productId?.let { repo.deleteProduk(it) } }
             runCatching { customerId?.let { repo.deletePelanggan(it) } }
             runCatching { accountId?.let { repo.deleteAkun(it) } }
+            runCatching { categoryId?.let { repo.deleteKategori(it) } }
             if (openedByTest) {
                 runCatching {
                     repo.closing(
@@ -331,11 +336,4 @@ class LiveCrudE2ETest {
 
     private fun JsonObject.stringValue(key: String): String? =
         this[key]?.jsonPrimitive?.contentOrNull
-
-    private fun kotlinx.serialization.json.JsonObjectBuilder.putJsonArrayCompat(
-        key: String,
-        value: JsonObject
-    ) {
-        put(key, kotlinx.serialization.json.buildJsonArray { add(value) })
-    }
 }

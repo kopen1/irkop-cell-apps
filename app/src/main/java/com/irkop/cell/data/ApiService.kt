@@ -1,5 +1,6 @@
 package com.irkop.cell.data
 
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -54,7 +55,7 @@ interface ApiService {
     @PUT("gaji/{id}") suspend fun updateGaji(@Path("id") id:String,@Body body:JsonObject):JsonObject
     @GET("gaji/rate") suspend fun gajiRate():JsonObject
     @POST("gaji/rate") suspend fun updateGajiRate(@Body body:JsonObject):JsonObject
-    @GET("users") suspend fun users():JsonObject
+    @GET("users") suspend fun users():JsonElement
     @POST("users") suspend fun createUser(@Body body:JsonObject):JsonObject
     @PUT("users/{id}") suspend fun updateUser(@Path("id") id:String,@Body body:JsonObject):JsonObject
     @PUT("users/{id}/permissions") suspend fun updateUserPermissions(@Path("id") id:String,@Body body:JsonObject):JsonObject

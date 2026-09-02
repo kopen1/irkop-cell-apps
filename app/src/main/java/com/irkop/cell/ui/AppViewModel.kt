@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.irkop.cell.core.SessionManager
 import com.irkop.cell.core.UserSession
 import com.irkop.cell.data.Repository
+import com.irkop.cell.core.ApiError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

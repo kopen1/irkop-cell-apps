@@ -83,6 +83,8 @@ class Repository(private val api: ApiService) {
     suspend fun createPengeluaran(body: JsonObject) =
         api.createPengeluaran(body, UUID.randomUUID().toString())
     suspend fun serviceHp() = api.serviceHp()
+    suspend fun createServiceHp(body: JsonObject) = api.createServiceHp(body)
+    suspend fun updateServiceHp(id: String, body: JsonObject) = api.updateServiceHp(id, body)
     suspend fun akun() = api.akun()
     suspend fun laporanBulan(month: String) = api.laporanBulan(month)
     suspend fun laporanTahun(year: Int) = api.laporanTahun(year)

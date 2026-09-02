@@ -4,7 +4,7 @@ Native Android MVP for IRKOP CELL, using Kotlin + Jetpack Compose and the existi
 
 ## API
 Default:
-`https://konter.irkop.workers.dev/api/v1/`
+`https://konter.irkop.workers.dev/api/`
 
 Override in CI:
 `gradle assembleDebug -PAPI_BASE_URL=https://example/api/v1/`
@@ -61,7 +61,7 @@ Required production environment secrets:
 
 Optional production environment variable:
 
-- `API_BASE_URL` (defaults to `https://konter.irkop.workers.dev/api/v1/`)
+- `API_BASE_URL` (defaults to `https://konter.irkop.workers.dev/api/`)
 
 The keystore is never committed to Git. Keep the downloaded `.jks` backup offline and protected. Do not generate a replacement keystore for an existing app unless you intentionally plan a signing-key migration.
 

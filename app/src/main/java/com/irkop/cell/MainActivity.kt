@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
@@ -25,6 +26,7 @@ import com.irkop.cell.core.UserSession
 import com.irkop.cell.data.*
 import com.irkop.cell.ui.AppViewModel
 import com.irkop.cell.ui.ScreenViewModel
+import com.irkop.cell.util.shareReceipt
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import kotlinx.serialization.json.buildJsonArray
@@ -354,7 +356,7 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
         runCatching {
             val result = repo.produk()
             products = result.array("items")?.mapNotNull { it as? JsonObject } ?: emptyList()
-        }.onFailure { error = it.message }
+        }.onFailure { error = it.message ?: "Terjadi kesalahan." }
     }
 
     val total = cart.sumOf { (it.product.long("harga") ?: 0L) * it.qty }
@@ -376,14 +378,20 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                         Row {
                             IconButton(onClick = {
                                 cart = cart.mapNotNull { x ->
-                                    if (x.product.string("id") == item.product.string("id")) {
+                                    if (x.product["id"]?.jsonPrimitive?.contentOrNull ==
+                                        item.product["id"]?.jsonPrimitive?.contentOrNull) {
                                         val n = x.qty - 1
                                         if (n > 0) x.copy(qty = n) else null
                                     } else x
                                 }
                             }) { Icon(Icons.Default.Remove, "Kurangi") }
                             IconButton(onClick = {
-                                cart = cart.map { x -> if (x.product.string("id") == item.product.string("id")) x.copy(qty = x.qty + 1) else x }
+                                cart = cart.map { x ->
+                                    if (x.product["id"]?.jsonPrimitive?.contentOrNull ==
+                                        item.product["id"]?.jsonPrimitive?.contentOrNull) {
+                                        x.copy(qty = x.qty + 1)
+                                    } else x
+                                }
                             }) { Icon(Icons.Default.Add, "Tambah") }
                         }
                     }
@@ -420,14 +428,46 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
         },
         confirmButton = {
             Button(enabled = cart.isNotEmpty() && !busy, onClick = {
+                if (cart.isEmpty()) {
+                    error = "Keranjang masih kosong."
+                    return@Button
+                }
+
+                if (total <= 0L) {
+                    error = "Total transaksi harus lebih dari 0."
+                    return@Button
+                }
+
                 if (method == "transfer" && receiverAccount.isBlank()) {
                     error = "Akun penerima wajib untuk transfer."
                     return@Button
                 }
-                if (method == "bon" && customerId.isBlank()) {
-                    error = "Pelanggan wajib untuk transaksi bon."
+
+                if (method == "bon" && customerId.toLongOrNull() == null) {
+                    error = "Pelanggan wajib diisi dengan ID yang valid untuk transaksi bon."
                     return@Button
                 }
+
+                if (manual) {
+                    val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
+                    val today = LocalDate.now()
+
+                    if (parsedDate == null) {
+                        error = "Tanggal harus menggunakan format YYYY-MM-DD."
+                        return@Button
+                    }
+
+                    if (parsedDate.isAfter(today)) {
+                        error = "Tanggal transaksi tidak boleh di masa depan."
+                        return@Button
+                    }
+
+                    if (parsedDate.isBefore(today.minusDays(30))) {
+                        error = "Tanggal transaksi maksimal 30 hari ke belakang."
+                        return@Button
+                    }
+                }
+
                 busy = true
                 error = null
                 scope.launch {
@@ -436,7 +476,7 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                             putJsonArray("items") {
                                 cart.forEach { item ->
                                     add(buildJsonObject {
-                                        put("produk_id", item.product.long("id") ?: 0L)
+                                        put("produk_id", item.product["id"] ?: JsonNull)
                                         put("qty", item.qty)
                                     })
                                 }
@@ -465,10 +505,21 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                 LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
                     items(products) { p ->
                         TextButton(onClick = {
-                            val id = p.string("id") ?: ""
-                            val existing = cart.firstOrNull { it.product.string("id") == id }
-                            cart = if (existing == null) cart + CartItem(p, 1)
-                            else cart.map { if (it.product.string("id") == id) it.copy(qty = it.qty + 1) else it }
+                            val id = p["id"]?.jsonPrimitive?.contentOrNull ?: ""
+                            val existing = cart.firstOrNull {
+                                it.product["id"]?.jsonPrimitive?.contentOrNull == id
+                            }
+                            cart = if (existing == null) {
+                                cart + CartItem(p, 1)
+                            } else {
+                                cart.map {
+                                    if (it.product["id"]?.jsonPrimitive?.contentOrNull == id) {
+                                        it.copy(qty = it.qty + 1)
+                                    } else {
+                                        it
+                                    }
+                                }
+                            }
                             picker = false
                         }, modifier = Modifier.fillMaxWidth()) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -529,7 +580,7 @@ private fun ProductScreen(repo: Repository) {
                             Row {
                                 TextButton(onClick = { edit = p; formOpen = true }) { Text("Edit") }
                                 TextButton(onClick = {
-                                    scope.launch { runCatching { repo.deleteProduk(p.string("id") ?: "") }.onSuccess { reload() }.onFailure { message = it.message } }
+                                    scope.launch { runCatching { repo.deleteProduk(p["id"]?.jsonPrimitive?.contentOrNull ?: "") }.onSuccess { reload() }.onFailure { message = it.message } }
                                 }) { Text("Hapus") }
                             }
                         }
@@ -562,7 +613,7 @@ private fun ProductFormDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val nonStock = categories.firstOrNull { it.string("id") == category }?.bool("lacak_stok") == false
+    val nonStock = categories.firstOrNull { it["id"]?.jsonPrimitive?.contentOrNull == category }?.bool("lacak_stok") == false
 
     AlertDialog(
         onDismissRequest = onCancel,
@@ -574,7 +625,7 @@ private fun ProductFormDialog(
                 Text("Kategori", style = MaterialTheme.typography.labelLarge)
                 categories.forEach { c ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = category == (c.string("id") ?: ""), onClick = { category = c.string("id") ?: "" })
+                        RadioButton(selected = category == (c["id"]?.jsonPrimitive?.contentOrNull ?: ""), onClick = { category = c["id"]?.jsonPrimitive?.contentOrNull ?: "" })
                         Text(c.string("nama") ?: "-")
                     }
                 }
@@ -613,7 +664,7 @@ private fun ProductFormDialog(
                             }
                         }
                         if (initial == null) repo.createProduk(body) else repo.updateProduk(initial.string("id") ?: "", body)
-                    }.onSuccess { onDone() }.onFailure { error = it.message }
+                    }.onSuccess { onDone() }.onFailure { error = it.message ?: "Terjadi kesalahan." }
                     busy = false
                 }
             }) { Text(if (busy) "Menyimpan..." else "Simpan") }
@@ -669,7 +720,7 @@ private fun CategoryDialog(
                         val body = buildJsonObject { put("nama", name.trim()); put("lacak_stok", if (track) 1 else 0) }
                         if (selectedEdit == null) repo.createKategori(body)
                         else repo.updateKategori(selectedEdit?.string("id") ?: "", body)
-                    }.onSuccess { onDone() }.onFailure { error = it.message }
+                    }.onSuccess { onDone() }.onFailure { error = it.message ?: "Terjadi kesalahan." }
                     busy = false
                 }
             }) { Text("Simpan") }
@@ -686,7 +737,7 @@ private fun CustomerScreen(repo: Repository) {
     var q by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    fun reload() = scope.launch { runCatching { data = repo.pelanggan(q.takeIf { it.isNotBlank() }) }.onFailure { error = it.message } }
+    fun reload() = scope.launch { runCatching { data = repo.pelanggan(q.takeIf { it.isNotBlank() }) }.onFailure { error = it.message ?: "Terjadi kesalahan." } }
     LaunchedEffect(Unit) { reload() }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -702,7 +753,7 @@ private fun CustomerScreen(repo: Repository) {
                     onClick = {
                     scope.launch {
                         runCatching {
-                            detail = repo.pelangganDetail(p.string("id") ?: "")
+                            detail = repo.pelangganDetail(p["id"]?.jsonPrimitive?.contentOrNull ?: "")
                         }.onFailure {
                             error = it.message
                         }
@@ -767,7 +818,7 @@ private fun CustomerFormDialog(repo: Repository, onDone: () -> Unit, onCancel: (
                             put("nama", name.trim())
                             if (phone.isNotBlank()) put("telepon", phone.trim())
                         })
-                    }.onSuccess { onDone() }.onFailure { error = it.message }
+                    }.onSuccess { onDone() }.onFailure { error = it.message ?: "Terjadi kesalahan." }
                     busy = false
                 }
             }) { Text("Simpan") }
@@ -781,7 +832,7 @@ private fun KasbonScreen(repo: Repository) {
     var data by remember { mutableStateOf<JsonObject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    fun reload() = scope.launch { runCatching { data = repo.kasbon() }.onFailure { error = it.message } }
+    fun reload() = scope.launch { runCatching { data = repo.kasbon() }.onFailure { error = it.message ?: "Terjadi kesalahan." } }
     LaunchedEffect(Unit) { reload() }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Kasbon", style = MaterialTheme.typography.headlineMedium)
@@ -801,11 +852,11 @@ private fun KasbonScreen(repo: Repository) {
                             Button(onClick = {
                                 scope.launch {
                                     runCatching {
-                                        repo.updateKasbon(k.string("id") ?: "", buildJsonObject {
+                                        repo.updateKasbon(k["id"]?.jsonPrimitive?.contentOrNull ?: "", buildJsonObject {
                                             put("status", "lunas")
                                             put("akun", "Tunai Laci")
                                         })
-                                    }.onSuccess { reload() }.onFailure { error = it.message }
+                                    }.onSuccess { reload() }.onFailure { error = it.message ?: "Terjadi kesalahan." }
                                 }
                             }) { Text("LUNAS") }
                         }
@@ -823,7 +874,7 @@ private fun ExpenseScreen(repo: Repository) {
     var create by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    fun reload() = scope.launch { runCatching { data = repo.pengeluaran() }.onFailure { error = it.message } }
+    fun reload() = scope.launch { runCatching { data = repo.pengeluaran() }.onFailure { error = it.message ?: "Terjadi kesalahan." } }
     LaunchedEffect(Unit) { reload() }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -882,7 +933,28 @@ private fun ExpenseFormDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
             Button(enabled = !busy, onClick = {
                 val n = amount.toLongOrNull()
                 if (desc.isBlank() || n == null || n <= 0) { error = "Deskripsi dan nominal wajib valid."; return@Button }
-                if (account.isBlank()) { error = "Akun sumber wajib."; return@Button }
+                if (account.isBlank()) {
+                    error = "Akun sumber wajib."
+                    return@Button
+                }
+
+                if (method == "transfer" && account.isBlank()) {
+                    error = "Akun sumber wajib untuk transfer."
+                    return@Button
+                }
+
+                if (date.isNotBlank()) {
+                    val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
+                    if (parsedDate == null) {
+                        error = "Tanggal harus menggunakan format YYYY-MM-DD."
+                        return@Button
+                    }
+                    if (parsedDate.isAfter(LocalDate.now())) {
+                        error = "Tanggal pengeluaran tidak boleh di masa depan."
+                        return@Button
+                    }
+                }
+
                 busy = true
                 scope.launch {
                     runCatching {
@@ -894,7 +966,7 @@ private fun ExpenseFormDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                             put("akun_sumber", account.trim())
                             if (date.isNotBlank()) put("tanggal", date.trim())
                         })
-                    }.onSuccess { onDone() }.onFailure { error = it.message }
+                    }.onSuccess { onDone() }.onFailure { error = it.message ?: "Terjadi kesalahan." }
                     busy = false
                 }
             }) { Text("Simpan") }
@@ -941,19 +1013,85 @@ private fun GenericListScreen(title: String, repo: Repository, loader: suspend (
 @Composable
 private fun ReportScreen(repo: Repository) {
     val vm: ScreenViewModel = viewModel(factory = SimpleFactory { ScreenViewModel(repo) })
-    val month = remember { mutableStateOf(LocalDate.now().toString().substring(0, 7)) }
-    LaunchedEffect(Unit) { vm.load { repo.laporanBulan(month.value) } }
+    var mode by remember { mutableStateOf("bulan") }
+    var month by remember { mutableStateOf(LocalDate.now().toString().substring(0, 7)) }
+    var year by remember { mutableStateOf(LocalDate.now().year.toString()) }
+
+    LaunchedEffect(Unit) {
+        vm.load { repo.laporanBulan(month) }
+    }
+
     val data by vm.data.collectAsState()
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Laporan Bulanan", style = MaterialTheme.typography.headlineMedium)
+        Text("Laporan", style = MaterialTheme.typography.headlineMedium)
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(
+                selected = mode == "bulan",
+                onClick = {
+                    mode = "bulan"
+                    vm.load { repo.laporanBulan(month) }
+                },
+                label = { Text("Bulanan") }
+            )
+
+            FilterChip(
+                selected = mode == "tahun",
+                onClick = {
+                    mode = "tahun"
+                    vm.load { repo.laporanTahun(year.toIntOrNull() ?: LocalDate.now().year) }
+                },
+                label = { Text("Tahunan") }
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(month.value, { month.value = it }, label = { Text("Bulan YYYY-MM") })
-        Button(onClick = { vm.load { repo.laporanBulan(month.value) } }) { Text("MUAT") }
+
+        if (mode == "bulan") {
+            OutlinedTextField(
+                month,
+                { month = it },
+                label = { Text("Bulan YYYY-MM") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(
+                onClick = {
+                    val valid = Regex("""\d{4}-\d{2}""").matches(month)
+                    if (valid) vm.load { repo.laporanBulan(month) }
+                }
+            ) {
+                Text("MUAT BULAN")
+            }
+        } else {
+            OutlinedTextField(
+                year,
+                { year = it.filter(Char::isDigit).take(4) },
+                label = { Text("Tahun YYYY") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(
+                onClick = {
+                    year.toIntOrNull()?.let { vm.load { repo.laporanTahun(it) } }
+                }
+            ) {
+                Text("MUAT TAHUN")
+            }
+        }
+
         Spacer(Modifier.height(12.dp))
+
         JsonList(data, null)
+
+        vm.error.collectAsState().value?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
     }
 }
-
 @Composable
 private fun AdminScreen(user: UserSession) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {

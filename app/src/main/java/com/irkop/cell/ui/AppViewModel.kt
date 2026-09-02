@@ -34,7 +34,12 @@ class AppViewModel(
                     session.save(session.token!!, it)
                     _state.value = AppState(false, it)
                 }.onFailure {
-                    // Keep the cached session; the user can retry from the app.
+                    session.clear()
+                    _state.value = AppState(
+                        false,
+                        null,
+                        it.message ?: "Sesi login sudah tidak berlaku"
+                    )
                 }
             } else {
                 _state.value = AppState(false, null)

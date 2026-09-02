@@ -91,12 +91,22 @@ class Repository(private val api: ApiService) {
 }
 
 private fun JsonObject.toUserSession(): UserSession {
-    val permissions = obj("permissions")?.mapValues { it.value.jsonPrimitive.booleanOrNull ?: false } ?: emptyMap()
+    val idValue = this["id"]?.jsonPrimitive?.contentOrNull
+    val nama = string("nama") ?: ""
+    val username = string("username") ?: ""
+    val role = string("role") ?: ""
+    val permissions = obj("permissions")
+        ?.entries
+        ?.associate { (key, value) ->
+            key to (value.jsonPrimitive.booleanOrNull ?: false)
+        }
+        ?: emptyMap()
+
     return UserSession(
-        id = string("id"),
-        nama = string("nama").orEmpty(),
-        username = string("username").orEmpty(),
-        role = string("role").orEmpty(),
+        id = idValue,
+        nama = nama,
+        username = username,
+        role = role,
         permissions = permissions
     )
 }

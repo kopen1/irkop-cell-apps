@@ -2,7 +2,11 @@ name: Android Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -10,6 +14,7 @@ permissions:
 
 jobs:
   build:
+    name: Build Debug APK
     runs-on: ubuntu-latest
 
     steps:
@@ -17,91 +22,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
+          cache: gradle
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Test Login API
-        shell: bash
-        run: |
-          set -e
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
 
-          URL="https://konter.irkop.workers.dev/api/auth/login"
-
-          echo "=== TEST LOGIN API ==="
-          echo "Endpoint: $URL"
-          echo "Username: demo"
-
-          RESPONSE=$(curl -sS \
-            -X POST \
-            -H "Content-Type: application/json" \
-            --connect-timeout 15 \
-            --max-time 30 \
-            -w '\nHTTP_STATUS:%{http_code}' \
-            "$URL" \
-            --data '{"username":"demo","password":"demodemo"}')
-
-          STATUS=$(printf '%s\n' "$RESPONSE" | sed -n 's/^HTTP_STATUS://p')
-          BODY=$(printf '%s\n' "$RESPONSE" | sed '/^HTTP_STATUS:/d')
-
-          echo "HTTP STATUS: $STATUS"
-
-          python3 - "$BODY" <<'PY'
-          import json
-          import sys
-
-          try:
-              data = json.loads(sys.argv[1])
-          except Exception:
-              print("ERROR: Response bukan JSON")
-              print(sys.argv[1][:1000])
-              raise SystemExit(1)
-
-          if isinstance(data, dict):
-              safe = dict(data)
-              if "token" in safe:
-                  safe["token"] = "[HIDDEN]"
-              if "access_token" in safe:
-                  safe["access_token"] = "[HIDDEN]"
-
-              print(json.dumps(safe, indent=2, ensure_ascii=False))
-
-              if "token" in data or "access_token" in data:
-                  print("LOGIN TOKEN: ADA")
-              else:
-                  print("LOGIN TOKEN: TIDAK ADA")
-
-              if "user" in data:
-                  print("USER: ADA")
-          PY
-
-          if [ "$STATUS" != "200" ]; then
-            echo "ERROR: Login API gagal."
-            exit 1
-          fi
-
-          if ! printf '%s' "$BODY" | grep -q '"token"'; then
-            echo "ERROR: Login berhasil tetapi token tidak ditemukan."
-            exit 1
-          fi
-
-          echo "LOGIN API: OK"
-
-      - name: Build Debug APK
+      - name: Build
         env:
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
-        run: |
-          chmod +x gradlew
-          URL="${API_BASE_URL:-https://konter.irkop.workers.dev/api/}"
-          echo "API_BASE_URL=$URL"
-          ./gradlew assembleDebug -PAPI_BASE_URL="$URL"
+          API_BASE_URL: https://konter.irkop.workers.dev/api/
+        run: ./gradlew assembleDebug -PAPI_BASE_URL="$API_BASE_URL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: irkop-cell-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk

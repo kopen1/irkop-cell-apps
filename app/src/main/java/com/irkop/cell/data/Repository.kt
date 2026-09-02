@@ -5,7 +5,7 @@ import kotlinx.serialization.json.*
 import java.util.UUID
 
 class Repository(private val api: ApiService) {
-    suspend fun login(username:String,password:String):Pair<String,UserSession>{val result=api.login(buildJsonObject{put("username",username);put("password",password)});val token=result.string("token")?:error(result.obj("error")?.string("message")?:"Login gagal");return token to (result.obj("user")?:error("Data user tidak tersedia")).toUserSession()}
+    suspend fun login(username:String,password:String)=api.login(buildJsonObject{put("username",username);put("password",password)}).let{result->(result.string("token")?:error(result.obj("error")?.string("message")?:"Login gagal")) to (result.obj("user")?:error("Data user tidak tersedia")).toUserSession()}
     suspend fun me():UserSession{val result=api.me();return(result.obj("user")?:result).toUserSession()}
     suspend fun logout()=runCatching{api.logout()}
     suspend fun kasirCurrent()=api.kasirCurrent();suspend fun reminderClosing()=api.reminderClosing()
@@ -16,7 +16,7 @@ class Repository(private val api: ApiService) {
     suspend fun produk()=api.produk();suspend fun createProduk(body:JsonObject)=api.createProduk(body);suspend fun updateProduk(id:String,body:JsonObject)=api.updateProduk(id,body);suspend fun deleteProduk(id:String)=api.deleteProduk(id)
     suspend fun kategori()=api.kategori();suspend fun createKategori(body:JsonObject)=api.createKategori(body);suspend fun updateKategori(id:String,body:JsonObject)=api.updateKategori(id,body);suspend fun deleteKategori(id:String)=api.deleteKategori(id)
     suspend fun pelanggan(q:String?=null)=api.pelanggan(q);suspend fun pelangganDetail(id:String)=api.pelangganDetail(id);suspend fun createPelanggan(body:JsonObject)=api.createPelanggan(body);suspend fun updatePelanggan(id:String,body:JsonObject)=api.updatePelanggan(id,body);suspend fun deletePelanggan(id:String)=api.deletePelanggan(id);suspend fun mergePelanggan(body:JsonObject)=api.mergePelanggan(body)
-    suspend fun kasbon()=api.kasbon();suspend fun createKasbon(body:JsonObject)=api.createKasbon(body);suspend fun updateKasbon(id:String,body:JsonObject)=api.updateKasbon(id,body);suspend fun deleteKasbon(id:String,reason:String?=null)=api.deleteKasbon(id,reason)
+    suspend fun kasbon()=api.kasbon();suspend fun createKasbon(body:JsonObject)=api.createKasbon(body);suspend fun updateKasbon(id:String,body:JsonObject)=api.updateKasbon(id,body);suspend fun payKasbon(id:String,body:JsonObject)=api.payKasbon(id,body);suspend fun deleteKasbon(id:String,reason:String?=null)=api.deleteKasbon(id,reason)
     suspend fun pengeluaran()=api.pengeluaran();suspend fun createPengeluaran(body:JsonObject)=api.createPengeluaran(body,UUID.randomUUID().toString());suspend fun pengeluaranDetail(id:String)=api.pengeluaranDetail(id);suspend fun updatePengeluaran(id:String,body:JsonObject)=api.updatePengeluaran(id,body);suspend fun deletePengeluaran(id:String,reason:String?)=api.deletePengeluaran(id,reason)
     suspend fun serviceHp()=api.serviceHp();suspend fun createServiceHp(body:JsonObject)=api.createServiceHp(body);suspend fun updateServiceHp(id:String,body:JsonObject)=api.updateServiceHp(id,body);suspend fun deleteServiceHp(id:String)=api.deleteServiceHp(id)
     suspend fun gaji()=api.gaji();suspend fun createGaji(body:JsonObject)=api.createGaji(body);suspend fun updateGaji(id:String,body:JsonObject)=api.updateGaji(id,body);suspend fun gajiRate()=api.gajiRate();suspend fun updateGajiRate(body:JsonObject)=api.updateGajiRate(body)

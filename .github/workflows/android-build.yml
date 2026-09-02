@@ -37,7 +37,7 @@ jobs:
             --exclude-dir=Docs \
             --exclude-dir=fix \
             'konter.irkop.workers.dev/api/v1' \
-            app .github README.md; then
+            app README.md; then
             echo "ERROR: production source masih menggunakan /api/v1."
             exit 1
           fi

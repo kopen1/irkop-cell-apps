@@ -176,57 +176,146 @@ private fun DashboardScreen(repo: Repository) {
 @Composable
 private fun KasirScreen(repo: Repository) {
     val vm: ScreenViewModel = viewModel(factory = SimpleFactory { ScreenViewModel(repo) })
+    val scope = rememberCoroutineScope()
+
     var opening by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) { vm.load { repo.kasirCurrent() } }
+
+    LaunchedEffect(Unit) {
+        vm.load { repo.kasirCurrent() }
+    }
+
     val data by vm.data.collectAsState()
+
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Kasir", style = MaterialTheme.typography.headlineMedium)
+
         Spacer(Modifier.height(12.dp))
+
         data?.let {
             InfoCard("Status", it.string("status") ?: "-")
             InfoCard("Tanggal", it.string("tanggal") ?: "-")
         }
+
         Spacer(Modifier.height(12.dp))
-        Button(onClick = { amount = ""; opening = true }, modifier = Modifier.fillMaxWidth()) { Text("OPENING") }
+
+        Button(
+            onClick = {
+                amount = ""
+                opening = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("OPENING")
+        }
+
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = { amount = ""; closing = true }, modifier = Modifier.fillMaxWidth()) { Text("CLOSING") }
+
+        OutlinedButton(
+            onClick = {
+                amount = ""
+                note = ""
+                closing = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("CLOSING")
+        }
+
+        vm.error.collectAsState().value?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
     }
+
     if (opening) {
-        AmountDialog("Saldo Awal Tunai Laci", amount, { amount = it }, {
-            vm.create { repo.opening(listOf("Tunai Laci" to (amount.toLongOrNull() ?: 0))) }
-            opening = false
-        }) { opening = false }
+        AmountDialog(
+            title = "Saldo Awal Tunai Laci",
+            value = amount,
+            onValue = { amount = it },
+            onConfirm = {
+                val saldo = amount.toLongOrNull() ?: 0L
+
+                scope.launch {
+                    runCatching {
+                        repo.opening(
+                            listOf("Tunai Laci" to saldo)
+                        )
+                    }.onSuccess {
+                        opening = false
+                        vm.load { repo.kasirCurrent() }
+                    }.onFailure {
+                        opening = false
+                    }
+                }
+            },
+            onCancel = {
+                opening = false
+            }
+        )
     }
+
     if (closing) {
-        Column {}
         AlertDialog(
-            onDismissRequest = { closing = false },
-            title = { Text("Closing Kasir") },
+            onDismissRequest = {
+                closing = false
+            },
+            title = {
+                Text("Closing Kasir")
+            },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(amount, { amount = it }, label = { Text("Saldo Real Tunai Laci") })
-                    OutlinedTextField(note, { note = it }, label = { Text("Catatan (opsional)") })
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { amount = it },
+                        label = { Text("Saldo Real Tunai Laci") },
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("Catatan (opsional)") },
+                        singleLine = true
+                    )
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    scope.launch {
-                        runCatching {
-                            repo.closing(
-                                listOf("Tunai Laci" to (amount.toLongOrNull() ?: 0)),
-                                note
-                            )
-                        }.onFailure {
-                            error = it.message ?: "Closing gagal"
+                Button(
+                    onClick = {
+                        val saldo = amount.toLongOrNull() ?: 0L
+
+                        scope.launch {
+                            runCatching {
+                                repo.closing(
+                                    listOf("Tunai Laci" to saldo),
+                                    note
+                                )
+                            }.onSuccess {
+                                closing = false
+                                vm.load { repo.kasirCurrent() }
+                            }.onFailure {
+                                closing = false
+                            }
                         }
                     }
-                    closing = false
-                }) { Text("Simpan") }
+                ) {
+                    Text("Simpan")
+                }
             },
-            dismissButton = { TextButton(onClick = { closing = false }) { Text("Batal") } }
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        closing = false
+                    }
+                ) {
+                    Text("Batal")
+                }
+            }
         )
     }
 }
@@ -365,8 +454,15 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                                 }
                             }
                             put("metode_bayar", JsonPrimitive(method))
-                            if (customerId.isNotBlank()) put("pelanggan_id", JsonPrimitive(customerId.toLongOrNull() ?: customerId))
-                            if (receiverAccount.isNotBlank()) put("akun_penerima", JsonPrimitive(receiverAccount.trim()))
+                            if (customerId.isNotBlank()) {
+                                val pelangganId = customerId.toLongOrNull()
+                                if (pelangganId != null) {
+                                    put("pelanggan_id", pelangganId)
+                                } else {
+                                    put("pelanggan_id", customerId)
+                                }
+                            }
+                            if (receiverAccount.isNotBlank()) put("akun_penerima", receiverAccount.trim())
                             put("manual_entry", JsonPrimitive(manual))
                             if (manual) put("tanggal_transaksi", JsonPrimitive(date))
                         })

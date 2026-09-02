@@ -27,11 +27,11 @@ Source of truth:
 - Implemented [x] — Verified [ ] Transaction count
 - Implemented [x] — Verified [ ] Active kasbon
 - Implemented [x] — Verified [ ] Kasir status
-- Implemented [ ] — Verified [ ] Balance per account
-- Implemented [ ] — Verified [ ] Today's latest transactions
+- Implemented [x] — Verified [ ] Balance per account
+- Implemented [x] — Verified [ ] Today's latest transactions
 - Implemented [x] — Verified [ ] Loading state
 - Implemented [x] — Verified [ ] Error state
-- Implemented [ ] — Verified [ ] Empty state
+- Implemented [x] — Verified [ ] Empty state
 
 ## Transaksi
 - Implemented [x] — Verified [ ] Multi-item cart

@@ -22,12 +22,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
 import com.irkop.cell.core.ApiClient
 import com.irkop.cell.core.ApiError
+import com.irkop.cell.core.AuthPolicy
 import com.irkop.cell.core.SessionManager
 import com.irkop.cell.core.UserSession
 import com.irkop.cell.data.*
 import com.irkop.cell.ui.AppViewModel
 import com.irkop.cell.ui.ScreenViewModel
 import com.irkop.cell.util.shareReceipt
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import java.text.NumberFormat
@@ -196,12 +200,16 @@ private fun MainScaffold(
 ) {
     val nav = rememberNavController()
 
-    val destinations = listOf(
-        Triple("dashboard", "Dashboard", Icons.Default.Home),
-        Triple("transaksi", "Transaksi", Icons.Default.ReceiptLong),
-        Triple("kasir", "Kasir", Icons.Default.PointOfSale),
-        Triple("laporan", "Laporan", Icons.Default.Assessment)
+    val allDestinations = listOf(
+        Triple(AuthPolicy.DASHBOARD, "Dashboard", Icons.Default.Home),
+        Triple(AuthPolicy.TRANSAKSI, "Transaksi", Icons.Default.ReceiptLong),
+        Triple(AuthPolicy.KASIR, "Kasir", Icons.Default.PointOfSale),
+        Triple(AuthPolicy.LAPORAN, "Laporan", Icons.Default.Assessment)
     )
+
+    val destinations = allDestinations.filter { (route, _, _) ->
+        AuthPolicy.canAccess(user, route)
+    }
 
     Scaffold(
         topBar = {
@@ -231,8 +239,10 @@ private fun MainScaffold(
                     NavigationBarItem(
                         selected = currentRoute(nav) == route,
                         onClick = {
-                            nav.navigate(route) {
-                                launchSingleTop = true
+                            if (AuthPolicy.canAccess(user, route)) {
+                                nav.navigate(route) {
+                                    launchSingleTop = true
+                                }
                             }
                         },
                         icon = {
@@ -249,24 +259,71 @@ private fun MainScaffold(
 
         NavHost(
             navController = nav,
-            startDestination = "dashboard",
+            startDestination = destinations.firstOrNull()?.first ?: "access_denied",
             modifier = Modifier.padding(padding)
         ) {
+            composable("access_denied") {
+                AccessDeniedScreen()
+            }
             composable("dashboard") {
-                DashboardScreen(repo)
+                if (AuthPolicy.canAccess(user, AuthPolicy.DASHBOARD)) {
+                    DashboardScreen(repo)
+                } else {
+                    AccessDeniedScreen()
+                }
             }
 
             composable("transaksi") {
-                TransaksiScreen(repo)
+                if (AuthPolicy.canAccess(user, AuthPolicy.TRANSAKSI)) {
+                    TransaksiScreen(repo)
+                } else {
+                    AccessDeniedScreen()
+                }
             }
 
             composable("kasir") {
-                KasirScreen(repo)
+                if (AuthPolicy.canAccess(user, AuthPolicy.KASIR)) {
+                    KasirScreen(repo)
+                } else {
+                    AccessDeniedScreen()
+                }
             }
 
             composable("laporan") {
-                ReportScreen(repo)
+                if (AuthPolicy.canAccess(user, AuthPolicy.LAPORAN)) {
+                    ReportScreen(repo)
+                } else {
+                    AccessDeniedScreen()
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun AccessDeniedScreen() {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = null
+            )
+            Text(
+                "Akses ditolak",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                "Akun Anda tidak memiliki permission untuk halaman ini.",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }
@@ -282,21 +339,146 @@ private fun currentRoute(
 
 @Composable
 private fun DashboardScreen(repo: Repository) {
-    val vm: ScreenViewModel = viewModel(
-        factory = SimpleFactory {
-            ScreenViewModel(repo)
-        }
-    )
+    val scope = rememberCoroutineScope()
+    val today = remember { LocalDate.now().toString() }
 
-    LaunchedEffect(Unit) {
-        vm.load {
-            repo.kasirCurrent()
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    var kasir by remember { mutableStateOf<JsonObject?>(null) }
+    var transaksi by remember { mutableStateOf<JsonObject?>(null) }
+    var kasbon by remember { mutableStateOf<JsonObject?>(null) }
+
+    suspend fun loadDashboard() {
+        loading = true
+        error = null
+
+        runCatching {
+            coroutineScope {
+                val kasirDeferred = async {
+                    repo.kasirCurrent()
+                }
+
+                val transaksiDeferred = async {
+                    repo.transaksi(
+                        tanggal = today
+                    )
+                }
+
+                val kasbonDeferred = async {
+                    repo.kasbon()
+                }
+
+                awaitAll(
+                    kasirDeferred,
+                    transaksiDeferred,
+                    kasbonDeferred
+                )
+
+                kasir = kasirDeferred.await()
+                transaksi = transaksiDeferred.await()
+                kasbon = kasbonDeferred.await()
+            }
+        }.onFailure {
+            kasir = null
+            transaksi = null
+            kasbon = null
+            error = it.message ?: "Gagal memuat dashboard"
+        }
+
+        loading = false
+    }
+
+    LaunchedEffect(today) {
+        loadDashboard()
+    }
+
+    fun reload() {
+        scope.launch {
+            loadDashboard()
         }
     }
 
-    val data by vm.data.collectAsState()
-    val loading by vm.loading.collectAsState()
-    val error by vm.error.collectAsState()
+    fun activeKasbonCount(): Int {
+        return kasbon
+            ?.items()
+            ?.count { item ->
+                val status = item.text(
+                    "status",
+                    "status_pembayaran"
+                )
+
+                status.equals("belum_lunas", ignoreCase = true) ||
+                    status.equals("belum lunas", ignoreCase = true) ||
+                    status.equals("aktif", ignoreCase = true)
+            }
+            ?: 0
+    }
+
+    fun latestTransactions(): List<JsonObject> {
+        return transaksi
+            ?.items()
+            ?.sortedByDescending { item ->
+                item.text(
+                    "created_at",
+                    "tanggal",
+                    "updated_at"
+                )
+            }
+            ?.take(10)
+            ?: emptyList()
+    }
+
+    fun saldoAccounts(): List<JsonObject> {
+        val root = kasir ?: return emptyList()
+
+        val saldo = root["saldo"] ?: return emptyList()
+
+        return when (saldo) {
+            is JsonArray ->
+                saldo.filterIsInstance<JsonObject>()
+
+            is JsonObject -> {
+                val nested = saldo.array("items")
+
+                if (nested != null) {
+                    nested.filterIsInstance<JsonObject>()
+                } else {
+                    listOf(saldo)
+                }
+            }
+
+            else -> emptyList()
+        }
+    }
+
+    val omzet = transaksi?.number(
+        "total_nilai",
+        "total_omzet",
+        "omzet"
+    ) ?: transaksi
+        ?.obj("ringkasan")
+        ?.number(
+            "omzet",
+            "total_omzet"
+        )
+        ?: 0L
+
+    val transactionCount = transaksi?.number(
+        "total_items",
+        "jumlah_transaksi",
+        "transaksi"
+    ) ?: transaksi?.items()?.size?.toLong()
+        ?: transaksi
+            ?.obj("ringkasan")
+            ?.number(
+                "transaksi",
+                "jumlah_transaksi"
+            )
+        ?: 0L
+
+    val latest = latestTransactions()
+    val saldoAccounts = saldoAccounts()
 
     LazyColumn(
         modifier = Modifier
@@ -305,75 +487,344 @@ private fun DashboardScreen(repo: Repository) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Text(
-                "Dashboard",
-                style = MaterialTheme.typography.headlineMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        "Dashboard",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+
+                    Text(
+                        "Ringkasan operasional hari ini ($today)",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        reload()
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Muat ulang"
+                    )
+                }
+            }
         }
 
-        item {
-            if (loading) {
+        if (loading) {
+            item {
                 LinearProgressIndicator(
-                    Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        item {
-            data?.let {
-                InfoCard(
-                    "Status Kasir",
-                    it.text("status")
-                )
+        error?.let { message ->
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Gagal memuat dashboard",
+                            style = MaterialTheme.typography.titleMedium,
+                            color =
+                                MaterialTheme.colorScheme.onErrorContainer
+                        )
 
-                InfoCard(
-                    "Tanggal",
-                    it.text("tanggal")
-                )
+                        Text(
+                            message,
+                            color =
+                                MaterialTheme.colorScheme.onErrorContainer
+                        )
 
-                it.obj("saldo")?.let { saldo ->
+                        Button(
+                            onClick = {
+                                reload()
+                            }
+                        ) {
+                            Text("Coba lagi")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!loading && error == null) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Omzet Hari Ini",
+                        value = money(omzet)
+                    )
+
+                    DashboardStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Transaksi",
+                        value = transactionCount.toString()
+                    )
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DashboardStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Kasbon Aktif",
+                        value = activeKasbonCount().toString()
+                    )
+
+                    DashboardStatCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Status Kasir",
+                        value = dashboardKasirStatus(
+                            kasir?.text("status") ?: ""
+                        )
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    "Saldo per Akun",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+
+            item {
+                if (saldoAccounts.isEmpty()) {
                     InfoCard(
                         "Saldo",
-                        money(saldo.number("total", "saldo"))
+                        "Belum ada saldo akun yang tersedia."
                     )
+                } else {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            saldoAccounts.forEach { account ->
+                                val accountName = account.text(
+                                    "nama_akun",
+                                    "nama",
+                                    "akun"
+                                )
+
+                                val balance = account.number(
+                                    "saldo_sistem",
+                                    "saldo",
+                                    "total"
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement =
+                                        Arrangement.SpaceBetween,
+                                    verticalAlignment =
+                                        Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        accountName,
+                                        style =
+                                            MaterialTheme.typography
+                                                .titleMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    Text(
+                                        money(balance),
+                                        style =
+                                            MaterialTheme.typography
+                                                .titleMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
+            }
 
-                it.obj("ringkasan")?.let { ringkasan ->
-                    InfoCard(
-                        "Omzet Hari Ini",
-                        money(
-                            ringkasan.number(
-                                "omzet",
-                                "total_omzet"
+            item {
+                Text(
+                    "Transaksi Terbaru",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+
+            if (latest.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment =
+                                Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.ReceiptLong,
+                                contentDescription = null
                             )
-                        )
-                    )
 
-                    InfoCard(
-                        "Transaksi",
-                        ringkasan.number(
-                            "transaksi",
-                            "jumlah_transaksi"
-                        ).toString()
-                    )
-
-                    InfoCard(
-                        "Kasbon Aktif",
-                        money(
-                            ringkasan.number(
-                                "kasbon",
-                                "kasbon_aktif"
+                            Spacer(
+                                Modifier.height(8.dp)
                             )
-                        )
-                    )
+
+                            Text(
+                                "Belum ada transaksi hari ini",
+                                style =
+                                    MaterialTheme.typography.titleMedium
+                            )
+
+                            Text(
+                                "Transaksi baru akan tampil di sini.",
+                                style =
+                                    MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(latest) { transaction ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            horizontalArrangement =
+                                Arrangement.SpaceBetween,
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    transaction.text(
+                                        "id",
+                                        "kode",
+                                        "nomor"
+                                    ),
+                                    style =
+                                        MaterialTheme.typography
+                                            .titleMedium
+                                )
+
+                                Text(
+                                    transaction.text(
+                                        "created_at",
+                                        "tanggal"
+                                    ),
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall
+                                )
+
+                                Text(
+                                    transaction.text(
+                                        "metode_bayar",
+                                        "metode"
+                                    ),
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall
+                                )
+
+                                val confirmation =
+                                    transaction.text(
+                                        "konfirmasi_pembayaran",
+                                        "status_konfirmasi",
+                                        "konfirmasi"
+                                    )
+
+                                if (confirmation != "-") {
+                                    Text(
+                                        confirmation,
+                                        style =
+                                            MaterialTheme.typography
+                                                .bodySmall
+                                    )
+                                }
+                            }
+
+                            Text(
+                                money(
+                                    transaction.number(
+                                        "total",
+                                        "total_nilai",
+                                        "nominal"
+                                    )
+                                ),
+                                style =
+                                    MaterialTheme.typography
+                                        .titleMedium
+                            )
+                        }
+                    }
                 }
             }
         }
+    }
+}
 
-        error?.let {
-            item {
-                ErrorBox(it)
-            }
+private fun dashboardKasirStatus(status: String): String =
+    when (status.lowercase()) {
+        "belum_buka" -> "Belum Buka"
+        "buka" -> "Buka"
+        "tutup" -> "Tutup"
+        else -> status.ifBlank { "-" }
+    }
+
+@Composable
+private fun DashboardStatCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String
+) {
+    Card(
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium
+            )
+
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge
+            )
         }
     }
 }

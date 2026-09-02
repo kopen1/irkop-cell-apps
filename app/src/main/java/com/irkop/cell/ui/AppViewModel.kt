@@ -27,21 +27,34 @@ class AppViewModel(
     init {
         viewModelScope.launch {
             session.load()
-            val existing = session.user
-            if (existing != null && session.token != null) {
-                _state.value = AppState(false, existing)
-                runCatching { repo.me() }.onSuccess {
-                    session.save(session.token!!, it)
-                    _state.value = AppState(false, it)
-                }.onFailure {
+
+            val existingToken = session.token
+            val existingUser = session.user
+
+            if (!existingToken.isNullOrBlank() && existingUser != null) {
+                // Render session tersimpan terlebih dahulu, lalu validasi
+                // JWT ke backend melalui /api/auth/me.
+                _state.value = AppState(false, existingUser)
+
+                runCatching {
+                    repo.me()
+                }.onSuccess { freshUser ->
+                    session.save(existingToken, freshUser)
+                    _state.value = AppState(false, freshUser)
+                }.onFailure { error ->
+                    // Token expired/revoked atau /auth/me gagal:
+                    // jangan biarkan session lokal tetap dianggap valid.
                     session.clear()
                     _state.value = AppState(
                         false,
                         null,
-                        it.message ?: "Sesi login sudah tidak berlaku"
+                        error.message ?: "Sesi login sudah tidak berlaku"
                     )
                 }
             } else {
+                // Hindari partial/stale session jika hanya token atau user
+                // yang tersimpan.
+                session.clear()
                 _state.value = AppState(false, null)
             }
         }
@@ -49,13 +62,30 @@ class AppViewModel(
 
     fun login(username: String, password: String) {
         viewModelScope.launch {
+            val cleanUsername = username.trim()
+
+            if (cleanUsername.isBlank() || password.isBlank()) {
+                _state.value = AppState(false, null, "Username dan password wajib diisi")
+                return@launch
+            }
+
             _state.value = AppState(true)
-            runCatching { repo.login(username, password) }
-                .onSuccess { (token, user) ->
-                    session.save(token, user)
-                    _state.value = AppState(false, user)
-                }
-                .onFailure { _state.value = AppState(false, null, it.message ?: "Login gagal") }
+
+            runCatching {
+                repo.login(cleanUsername, password)
+            }.onSuccess { (token, user) ->
+                // JWT + user disimpan atomically melalui SessionManager
+                // sebelum UI dianggap authenticated.
+                session.save(token, user)
+                _state.value = AppState(false, user)
+            }.onFailure {
+                session.clear()
+                _state.value = AppState(
+                    false,
+                    null,
+                    it.message ?: "Login gagal"
+                )
+            }
         }
     }
 
@@ -65,7 +95,8 @@ class AppViewModel(
 
     fun logout() {
         viewModelScope.launch {
-            repo.logout()
+            // Local logout wajib berhasil walaupun request remote gagal.
+            runCatching { repo.logout() }
             session.clear()
             _state.value = AppState(false, null)
         }

@@ -16,7 +16,15 @@ data class UserSession(
 ) {
     fun can(page: String): Boolean {
         if (role.equals("admin", ignoreCase = true)) return true
-        return permissions[page] == true
+
+        // Backend permission keys normalnya exact-match.
+        // Fallback case-insensitive mencegah UI gagal membaca key
+        // hanya karena perbedaan kapitalisasi.
+        permissions[page]?.let { return it }
+
+        return permissions.entries.firstOrNull {
+            it.key.equals(page, ignoreCase = true)
+        }?.value == true
     }
 
     fun toJson(): String = Json.encodeToString(serializer(), this)

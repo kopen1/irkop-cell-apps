@@ -68,3 +68,8 @@ The keystore is never committed to Git. Keep the downloaded `.jks` backup offlin
 ### CI JVM compatibility
 
 Android Java and Kotlin compilation are explicitly aligned to JVM 17 using the Kotlin JVM toolchain and Android `compileOptions`, matching the GitHub Actions Java 17 environment.
+
+
+### Keystore bootstrap
+
+Run the manual `Generate Android Keystore` workflow once after setting the three signing secrets. Download the resulting `.jks` artifact and keep it as the master backup. Do not generate a new signing key for subsequent releases.

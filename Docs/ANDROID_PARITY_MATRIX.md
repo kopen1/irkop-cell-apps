@@ -7,7 +7,6 @@ Source of truth:
 - Existing Android API layer
 
 ## Status rules
-
 - `Implemented`: feature is actually present in the native Android repo.
 - `Verified`: feature has a dedicated relevant test and the latest GitHub Actions run passes that test.
 - **DONE = Implemented + Verified.**
@@ -99,7 +98,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] Detail
 - Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Delete
 - Implemented [x] — Verified [ ] Belum lunas
 - Implemented [x] — Verified [ ] Lunas
 - Implemented [x] — Verified [ ] Settlement
@@ -120,7 +119,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] List
 - Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Delete
 - Implemented [x] — Verified [ ] Customer
 - Implemented [x] — Verified [ ] Device
 - Implemented [x] — Verified [ ] Complaint
@@ -144,7 +143,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] List
 - Implemented [x] — Verified [ ] Create
 - Implemented [x] — Verified [ ] Edit
-- Implemented [ ] — Verified [ ] Delete
+- Implemented [x] — Verified [ ] Delete
 - Implemented [x] — Verified [ ] Balance
 - Implemented [x] — Verified [ ] Account source validation
 
@@ -153,7 +152,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] Yearly
 - Implemented [x] — Verified [ ] Omzet
 - Implemented [x] — Verified [ ] Laba
-- Implemented [ ] — Verified [ ] Category recap
+- Implemented [x] — Verified [ ] Category recap
 - Implemented [x] — Verified [ ] Kasbon
 - Implemented [x] — Verified [ ] Expenses
 - Implemented [x] — Verified [ ] Net
@@ -161,7 +160,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] 12-month breakdown
 - Implemented [x] — Verified [ ] Best-selling category
 - Implemented [x] — Verified [ ] CSV export
-- Implemented [ ] — Verified [ ] Print
+- Implemented [x] — Verified [ ] Print
 - Implemented [x] — Verified [ ] Manual transaction
 
 ## Pengaturan
@@ -198,7 +197,7 @@ Source of truth:
 - Implemented [x] — Verified [ ] Transaction -> mutasi_saldo
 - Implemented [x] — Verified [ ] Expense -> mutasi_saldo
 - Implemented [x] — Verified [ ] Reports from backend
-- Implemented [ ] — Verified [ ] No frontend financial calculation
+- Implemented [x] — Verified [ ] No frontend financial calculation
 - Implemented [x] — Verified [ ] Atomic reversal
 - Implemented [x] — Verified [ ] Idempotency
 - Implemented [x] — Verified [ ] Closed kasir protection

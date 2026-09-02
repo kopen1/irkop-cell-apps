@@ -13,7 +13,7 @@ object AuthPolicy {
     const val KASIR = "kasir"
     const val LAPORAN = "laporan"
 
-    const val GAJI = "gaji"
+    const val GAJI = "gaji_karyawan"
     const val PENGATURAN = "pengaturan"
 
     fun isKaryawan(user: UserSession): Boolean =

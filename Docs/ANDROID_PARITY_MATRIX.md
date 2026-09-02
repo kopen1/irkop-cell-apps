@@ -18,9 +18,9 @@ Source of truth:
 - Implemented [x] — Verified [ ] JWT session persistence
 - Implemented [x] — Verified [ ] `/api/auth/me`
 - Implemented [x] — Verified [ ] Logout
-- Implemented [ ] — Verified [ ] Granular permission
-- Implemented [ ] — Verified [ ] Karyawan hard-block `gaji_karyawan`
-- Implemented [ ] — Verified [ ] Karyawan hard-block `pengaturan`
+- Implemented [x] — Verified [ ] Granular permission
+- Implemented [x] — Verified [ ] Karyawan hard-block `gaji_karyawan`
+- Implemented [x] — Verified [ ] Karyawan hard-block `pengaturan`
 
 ## Dashboard
 - Implemented [x] — Verified [ ] Daily omzet

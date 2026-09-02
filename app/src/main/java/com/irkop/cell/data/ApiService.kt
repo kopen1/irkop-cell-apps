@@ -42,6 +42,7 @@ interface ApiService {
     @GET("kasbon") suspend fun kasbon():JsonObject
     @POST("kasbon") suspend fun createKasbon(@Body body:JsonObject):JsonObject
     @PUT("kasbon/{id}") suspend fun updateKasbon(@Path("id") id:String,@Body body:JsonObject):JsonObject
+    @POST("kasbon/{id}/payment") suspend fun payKasbon(@Path("id") id:String,@Body body:JsonObject):JsonObject
     @DELETE("kasbon/{id}") suspend fun deleteKasbon(@Path("id") id:String,@Query("reason") reason:String?=null):JsonObject
     @GET("pengeluaran") suspend fun pengeluaran():JsonObject
     @POST("pengeluaran") suspend fun createPengeluaran(@Body body:JsonObject,@Header("Idempotency-Key") idempotencyKey:String):JsonObject

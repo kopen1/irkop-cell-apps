@@ -18,7 +18,7 @@ android {
         buildConfigField(
             "String",
             "API_BASE_URL",
-            "\"${project.findProperty("API_BASE_URL") ?: "https://konter.irkop.workers.dev/api/v1/"}\""
+            "\"${project.findProperty("API_BASE_URL") ?: "https://konter.irkop.workers.dev/api/"}\""
         )
     }
 

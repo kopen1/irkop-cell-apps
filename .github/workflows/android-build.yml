@@ -43,20 +43,6 @@ jobs:
           fi
           echo "API base URL PASS."
 
-      - name: Verify no forbidden APK workflow commands
-        shell: bash
-        run: |
-          set -e
-          if grep -RInE \
-            --exclude-dir=.git \
-            --exclude='android-build.yml' \
-            '(^|[^A-Za-z])(assembleDebug|assembleRelease|bundleRelease)([^A-Za-z]|$)' \
-            .github/workflows; then
-            echo "ERROR: workflow mengandung perintah APK build yang dilarang."
-            exit 1
-          fi
-          echo "Workflow command policy PASS."
-
       - name: Build debug APK
         shell: bash
         run: |

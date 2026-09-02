@@ -893,6 +893,7 @@ private fun TransactionDetailDialog(
     onCancel: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var deleting by remember { mutableStateOf(false) }
     var reason by remember { mutableStateOf("") }

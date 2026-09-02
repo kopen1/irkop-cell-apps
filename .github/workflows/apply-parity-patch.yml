@@ -1,0 +1,30 @@
+name: Apply parity patch
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'apply parity patch') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        shell: bash
+        run: |
+          chmod +x fix/patch_batch_parity.sh
+          bash fix/patch_batch_parity.sh
+      - name: Remove patch automation
+        shell: bash
+        run: |
+          git rm -f fix/patch_batch_parity.sh .github/workflows/apply-parity-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: remove one-shot parity patch"
+          git push origin main

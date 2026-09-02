@@ -42,6 +42,7 @@ interface ApiService {
     @GET("kasbon") suspend fun kasbon():JsonObject
     @POST("kasbon") suspend fun createKasbon(@Body body:JsonObject):JsonObject
     @PUT("kasbon/{id}") suspend fun updateKasbon(@Path("id") id:String,@Body body:JsonObject):JsonObject
+    @DELETE("kasbon/{id}") suspend fun deleteKasbon(@Path("id") id:String,@Query("reason") reason:String?=null):JsonObject
     @GET("pengeluaran") suspend fun pengeluaran():JsonObject
     @POST("pengeluaran") suspend fun createPengeluaran(@Body body:JsonObject,@Header("Idempotency-Key") idempotencyKey:String):JsonObject
     @GET("pengeluaran/{id}") suspend fun pengeluaranDetail(@Path("id") id:String):JsonObject
@@ -50,6 +51,7 @@ interface ApiService {
     @GET("service-hp") suspend fun serviceHp():JsonObject
     @POST("service-hp") suspend fun createServiceHp(@Body body:JsonObject):JsonObject
     @PUT("service-hp/{id}") suspend fun updateServiceHp(@Path("id") id:String,@Body body:JsonObject):JsonObject
+    @DELETE("service-hp/{id}") suspend fun deleteServiceHp(@Path("id") id:String):JsonObject
     @GET("gaji") suspend fun gaji():JsonObject
     @POST("gaji") suspend fun createGaji(@Body body:JsonObject):JsonObject
     @PUT("gaji/{id}") suspend fun updateGaji(@Path("id") id:String,@Body body:JsonObject):JsonObject
@@ -62,6 +64,7 @@ interface ApiService {
     @GET("akun") suspend fun akun():JsonObject
     @POST("akun") suspend fun createAkun(@Body body:JsonObject):JsonObject
     @PUT("akun/{id}") suspend fun updateAkun(@Path("id") id:String,@Body body:JsonObject):JsonObject
+    @DELETE("akun/{id}") suspend fun deleteAkun(@Path("id") id:String):JsonObject
     @GET("settings") suspend fun settings():JsonObject
     @PUT("settings") suspend fun updateSettings(@Body body:JsonObject):JsonObject
     @POST("settings/generate") suspend fun generateSettings(@Body body:JsonObject=JsonObject(emptyMap())):JsonObject

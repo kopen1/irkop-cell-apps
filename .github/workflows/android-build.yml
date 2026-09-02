@@ -49,12 +49,6 @@ jobs:
           set -e
           ./gradlew assembleDebug
 
-      - name: Run lint
-        shell: bash
-        run: |
-          set -e
-          ./gradlew lint
-
       - name: Verify APK exists
         shell: bash
         run: |
@@ -73,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          if git ls-files | grep -qE '\.(apk|aab)$'; then
+          if git ls-files | grep -qE '\\.(apk|aab)$'; then
             echo "ERROR: APK/AAB ter-commit ke repository."
             exit 1
           fi

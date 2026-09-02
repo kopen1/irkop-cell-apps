@@ -72,3 +72,5 @@ jobs:
             exit 1
           fi
           echo "No committed APK/AAB PASS."
+
+      # UI/feature overhaul build validation: tests and live E2E remain disabled.

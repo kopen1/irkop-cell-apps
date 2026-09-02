@@ -6,7 +6,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.IrkopCell">
         <activity
-            android:name=".NativeWalletActivity"
+            android:name=".NativeWalletActivity2"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

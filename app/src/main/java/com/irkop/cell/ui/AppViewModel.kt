@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.irkop.cell.core.SessionManager
 import com.irkop.cell.core.UserSession
 import com.irkop.cell.data.Repository
-import com.irkop.cell.core.ApiError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,12 +16,19 @@ data class AppState(
     val error: String? = null
 )
 
+/** Temporary demo authentication until the production login flow is ready. */
 class AppViewModel(
     private val session: SessionManager,
     private val repo: Repository
 ) : ViewModel() {
     private val _state = MutableStateFlow(AppState())
     val state: StateFlow<AppState> = _state
+
+    companion object {
+        private const val DEMO_AUTO_LOGIN = true
+        private const val DEMO_USERNAME = "demo"
+        private const val DEMO_PASSWORD = "demodemo"
+    }
 
     init {
         viewModelScope.launch {
@@ -32,60 +38,70 @@ class AppViewModel(
             val existingUser = session.user
 
             if (!existingToken.isNullOrBlank() && existingUser != null) {
-                // Render session tersimpan terlebih dahulu, lalu validasi
-                // JWT ke backend melalui /api/auth/me.
                 _state.value = AppState(false, existingUser)
 
-                runCatching {
-                    repo.me()
-                }.onSuccess { freshUser ->
-                    session.save(existingToken, freshUser)
-                    _state.value = AppState(false, freshUser)
-                }.onFailure { error ->
-                    // Token expired/revoked atau /auth/me gagal:
-                    // jangan biarkan session lokal tetap dianggap valid.
-                    session.clear()
-                    _state.value = AppState(
-                        false,
-                        null,
-                        error.message ?: "Sesi login sudah tidak berlaku"
-                    )
-                }
+                runCatching { repo.me() }
+                    .onSuccess { freshUser ->
+                        session.save(existingToken, freshUser)
+                        _state.value = AppState(false, freshUser)
+                    }
+                    .onFailure {
+                        if (DEMO_AUTO_LOGIN) {
+                            autoLoginDemo()
+                        } else {
+                            session.clear()
+                            _state.value = AppState(
+                                false,
+                                null,
+                                it.message ?: "Sesi login sudah tidak berlaku"
+                            )
+                        }
+                    }
+            } else if (DEMO_AUTO_LOGIN) {
+                autoLoginDemo()
             } else {
-                // Hindari partial/stale session jika hanya token atau user
-                // yang tersimpan.
                 session.clear()
                 _state.value = AppState(false, null)
             }
         }
     }
 
+    private suspend fun autoLoginDemo() {
+        _state.value = AppState(true)
+
+        runCatching { repo.login(DEMO_USERNAME, DEMO_PASSWORD) }
+            .onSuccess { (token, user) ->
+                session.save(token, user)
+                _state.value = AppState(false, user)
+            }
+            .onFailure {
+                session.clear()
+                _state.value = AppState(
+                    false,
+                    null,
+                    "Login demo gagal: ${it.message ?: "server tidak tersedia"}"
+                )
+            }
+    }
+
     fun login(username: String, password: String) {
         viewModelScope.launch {
             val cleanUsername = username.trim()
-
             if (cleanUsername.isBlank() || password.isBlank()) {
                 _state.value = AppState(false, null, "Username dan password wajib diisi")
                 return@launch
             }
 
             _state.value = AppState(true)
-
-            runCatching {
-                repo.login(cleanUsername, password)
-            }.onSuccess { (token, user) ->
-                // JWT + user disimpan atomically melalui SessionManager
-                // sebelum UI dianggap authenticated.
-                session.save(token, user)
-                _state.value = AppState(false, user)
-            }.onFailure {
-                session.clear()
-                _state.value = AppState(
-                    false,
-                    null,
-                    it.message ?: "Login gagal"
-                )
-            }
+            runCatching { repo.login(cleanUsername, password) }
+                .onSuccess { (token, user) ->
+                    session.save(token, user)
+                    _state.value = AppState(false, user)
+                }
+                .onFailure {
+                    session.clear()
+                    _state.value = AppState(false, null, it.message ?: "Login gagal")
+                }
         }
     }
 
@@ -95,10 +111,13 @@ class AppViewModel(
 
     fun logout() {
         viewModelScope.launch {
-            // Local logout wajib berhasil walaupun request remote gagal.
             runCatching { repo.logout() }
             session.clear()
-            _state.value = AppState(false, null)
+            if (DEMO_AUTO_LOGIN) {
+                autoLoginDemo()
+            } else {
+                _state.value = AppState(false, null)
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.irkop.cell
 
 import android.os.Bundle
@@ -212,7 +213,16 @@ private fun KasirScreen(repo: Repository) {
             },
             confirmButton = {
                 Button(onClick = {
-                    vm.create { repo.closing(listOf("Tunai Laci" to (amount.toLongOrNull() ?: 0)), note) }
+                    scope.launch {
+                        runCatching {
+                            repo.closing(
+                                listOf("Tunai Laci" to (amount.toLongOrNull() ?: 0)),
+                                note
+                            )
+                        }.onFailure {
+                            error = it.message ?: "Closing gagal"
+                        }
+                    }
                     closing = false
                 }) { Text("Simpan") }
             },
@@ -349,16 +359,16 @@ private fun TransactionDialog(repo: Repository, onDone: () -> Unit, onCancel: ()
                             putJsonArray("items") {
                                 cart.forEach { item ->
                                     add(buildJsonObject {
-                                        put("produk_id", item.product.long("id") ?: item.product.string("id") ?: "")
-                                        put("qty", item.qty)
+                                        put("produk_id", JsonPrimitive(item.product.long("id") ?: item.product.string("id") ?: ""))
+                                        put("qty", JsonPrimitive(item.qty))
                                     })
                                 }
                             }
-                            put("metode_bayar", method)
-                            if (customerId.isNotBlank()) put("pelanggan_id", customerId.toLongOrNull() ?: customerId)
-                            if (receiverAccount.isNotBlank()) put("akun_penerima", receiverAccount.trim())
-                            put("manual_entry", manual)
-                            if (manual) put("tanggal_transaksi", date)
+                            put("metode_bayar", JsonPrimitive(method))
+                            if (customerId.isNotBlank()) put("pelanggan_id", JsonPrimitive(customerId.toLongOrNull() ?: customerId))
+                            if (receiverAccount.isNotBlank()) put("akun_penerima", JsonPrimitive(receiverAccount.trim()))
+                            put("manual_entry", JsonPrimitive(manual))
+                            if (manual) put("tanggal_transaksi", JsonPrimitive(date))
                         })
                     }.onSuccess { onDone() }
                         .onFailure { error = it.message ?: "Transaksi gagal" }
@@ -609,9 +619,18 @@ private fun CustomerScreen(repo: Repository) {
         Spacer(Modifier.height(8.dp))
         LazyColumn {
             items((data?.array("items") ?: JsonArray(emptyList())).filterIsInstance<JsonObject>()) { p ->
-                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp), onClick = {
-                    scope.launch { runCatching { detail = repo.pelangganDetail(p.string("id") ?: "") }.onFailure { error = it.message } }
-                }) {
+                Card(
+                    onClick = {
+                    scope.launch {
+                        runCatching {
+                            detail = repo.pelangganDetail(p.string("id") ?: "")
+                        }.onFailure {
+                            error = it.message
+                        }
+                    }
+                },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                ) {
                     Column(Modifier.padding(12.dp)) {
                         Text(p.string("nama") ?: "-")
                         Text(p.string("telepon") ?: "Tanpa nomor", style = MaterialTheme.typography.bodySmall)

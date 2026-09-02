@@ -988,7 +988,7 @@ private fun TransactionDetailDialog(
                             )
 
                             shareReceipt(
-                                LocalContext.current,
+                                context,
                                 data,
                                 total,
                                 data.text("metode_bayar", "metode")

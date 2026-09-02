@@ -91,11 +91,11 @@ class Repository(
                             }
                         )
                     }
-
-                    note
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { put("catatan_closing", it) }
                 }
+
+                note
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { put("catatan_closing", it) }
             }
         )
 

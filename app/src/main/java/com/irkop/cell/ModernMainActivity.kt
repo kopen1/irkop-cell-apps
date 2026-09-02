@@ -4,7 +4,6 @@ package com.irkop.cell
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,9 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelProvider
@@ -27,44 +24,262 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.irkop.cell.core.*
 import com.irkop.cell.data.*
 import com.irkop.cell.ui.AppViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.*
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.util.Locale
 
-private val Money = NumberFormat.getCurrencyInstance(Locale("id","ID")).apply { maximumFractionDigits=0 }
-private fun money(v:Long?)=Money.format(v?:0L)
-private fun JsonObject.txt(vararg k:String)=k.firstNotNullOfOrNull{string(it)?.takeIf(String::isNotBlank)}?:"-"
-private fun JsonObject.num(vararg k:String)=k.firstNotNullOfOrNull{long(it)}?:0L
-private fun JsonObject.itemsList()=array("items")?.filterIsInstance<JsonObject>().orEmpty()
-private fun avatar(s:String)=s.trim().split(" ").filter(String::isNotBlank).take(2).joinToString(""){it.first().uppercase()}.ifBlank{"IC"}
+private val Money = NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply { maximumFractionDigits = 0 }
+private fun money(v: Long?) = Money.format(v ?: 0L)
+private fun JsonObject.txt(vararg keys: String): String = keys.firstNotNullOfOrNull { string(it)?.takeIf(String::isNotBlank) } ?: "-"
+private fun JsonObject.num(vararg keys: String): Long = keys.firstNotNullOfOrNull { long(it) } ?: 0L
+private fun JsonObject.itemsList(): List<JsonObject> = array("items")?.filterIsInstance<JsonObject>().orEmpty()
+private fun avatar(value: String): String = value.trim().split(" ").filter(String::isNotBlank).take(2).joinToString("") { it.first().uppercase() }.ifBlank { "IC" }
 
-class ModernMainActivity:ComponentActivity(){
- override fun onCreate(state:Bundle?){super.onCreate(state);val session=SessionManager(applicationContext);val repo=Repository(ApiClient(session).api);setContent{val vm:AppViewModel=viewModel(factory=object:ViewModelProvider.Factory{override fun <T:androidx.lifecycle.ViewModel> create(c:Class<T>):T=AppViewModel(session,repo) as T});IrkopTheme{ModernRoot(vm,repo)}}}
+class ModernMainActivity : ComponentActivity() {
+    override fun onCreate(state: Bundle?) {
+        super.onCreate(state)
+        val session = SessionManager(applicationContext)
+        val repo = Repository(ApiClient(session).api)
+        setContent {
+            val vm: AppViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T = AppViewModel(session, repo) as T
+            })
+            IrkopTheme { ModernRoot(vm, repo) }
+        }
+    }
 }
 
-@Composable private fun ModernRoot(vm:AppViewModel,repo:Repository){val state by vm.state.collectAsState();when{state.loading->Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center){CircularProgressIndicator()};state.user==null->ModernLogin(state.error,vm::login,vm::clearError);else->ModernShell(state.user!!,vm::logout,repo)}}
-@Composable private fun ModernLogin(error:String?,login:(String,String)->Unit,clear:()->Unit){var u by remember{mutableStateOf("")};var p by remember{mutableStateOf("")};Column(Modifier.fillMaxSize().padding(24.dp),verticalArrangement=Arrangement.Center){Icon(Icons.Default.PhoneAndroid,null,modifier=Modifier.size(58.dp),tint=MaterialTheme.colorScheme.primary);Spacer(Modifier.height(12.dp));Text("IRKOP CELL",style=MaterialTheme.typography.headlineLarge);Text("POS & Buku Kas Digital",color=MaterialTheme.colorScheme.onSurfaceVariant);Spacer(Modifier.height(24.dp));OutlinedTextField(u,{u=it},label={Text("Username")},singleLine=true,modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(10.dp));OutlinedTextField(p,{p=it},label={Text("Password")},visualTransformation=PasswordVisualTransformation(),singleLine=true,modifier=Modifier.fillMaxWidth());Spacer(Modifier.height(16.dp));Button(onClick={login(u.trim(),p)},enabled=u.isNotBlank()&&p.isNotBlank(),modifier=Modifier.fillMaxWidth()){Text("Masuk")};if(!error.isNullOrBlank()){Text(error,color=MaterialTheme.colorScheme.error);LaunchedEffect(error){clear()}}}}
-
-private data class AppTab(val route:String,val label:String,val icon:androidx.compose.ui.graphics.vector.ImageVector,val enabled:Boolean)
-@Composable private fun ModernShell(user:UserSession,logout:()->Unit,repo:Repository){var tab by remember{mutableStateOf("dashboard")};val tabs=listOf(AppTab("dashboard","Dashboard",Icons.Default.Home,AuthPolicy.canAccess(user,AuthPolicy.DASHBOARD)),AppTab("transaksi","Transaksi",Icons.Default.ReceiptLong,AuthPolicy.canAccess(user,AuthPolicy.TRANSAKSI)),AppTab("kasir","Kasir",Icons.Default.PointOfSale,AuthPolicy.canAccess(user,AuthPolicy.KASIR)),AppTab("laporan","Laporan",Icons.Default.Assessment,AuthPolicy.canAccess(user,AuthPolicy.LAPORAN)),AppTab("lainnya","Lainnya",Icons.Default.MoreHoriz,true));if(tabs.none{it.route==tab&&it.enabled})tab=tabs.firstOrNull{it.enabled}?.route?:"lainnya";Scaffold(topBar={if(tab=="dashboard")TopAppBar(title={Column{Text("IRKOP CELL");Text(user.nama.ifBlank{user.username},style=MaterialTheme.typography.labelSmall)}},navigationIcon={IconButton(onClick={tab="lainnya"}){Icon(Icons.Default.Menu,"Menu")}},actions={IconButton(onClick={}){Icon(Icons.Default.NotificationsNone,"Notifikasi")};IconButton(onClick=logout){Icon(Icons.Default.Logout,"Keluar")}})},bottomBar={NavigationBar{tabs.forEach{item->NavigationBarItem(selected=tab==item.route,enabled=item.enabled,onClick={if(item.enabled)tab=item.route},icon={Icon(item.icon,item.label)},label={Text(item.label)})}}}){pad->Box(Modifier.fillMaxSize().padding(pad)){when(tab){"dashboard"->ModernDashboard(repo,{tab="transaksi"},{tab="kasir"},{tab="lainnya"},{tab="laporan"});"transaksi"->ModernTransactions(repo);"kasir"->ModernCashier(repo);"laporan"->ModernReport(repo);else->ParityExtrasScreen(user,repo)}}}}
-
-@Composable private fun ModernDashboard(repo:Repository,txGo:()->Unit,cashGo:()->Unit,otherGo:()->Unit,reportGo:()->Unit){var tx by remember{mutableStateOf<JsonObject?>(null)};var kb by remember{mutableStateOf<JsonObject?>(null)};var pl by remember{mutableStateOf<JsonObject?>(null)};var loading by remember{mutableStateOf(true)};LaunchedEffect(Unit){coroutineScope{val a=async{runCatching{repo.transaksi(tanggal=LocalDate.now().toString())}.getOrNull()};val b=async{runCatching{repo.kasbon()}.getOrNull()};val c=async{runCatching{repo.pelanggan()}.getOrNull()};val x=awaitAll(a,b,c);tx=x[0];kb=x[1];pl=x[2];loading=false}};val rows=tx?.itemsList().orEmpty();val omzet=tx?.num("total_nilai","total_omzet","omzet")?:rows.sumOf{it.num("total","nominal","grand_total")};val count=tx?.num("jumlah_transaksi","transaksi","total_items")?:rows.size.toLong();val debt=kb?.itemsList()?.count{it.txt("status","status_pembayaran").contains("belum",true)}?:0;val customers=pl?.num("jumlah_pelanggan","total_pelanggan")?:pl?.itemsList()?.size?.toLong()?:0;LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(14.dp),contentPadding=PaddingValues(top=12.dp,bottom=24.dp)){item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Pelanggan","Kasbon","Service HP","Akun Uang").forEachIndexed{i,s->FilterChip(selected=i==0,onClick={},label={Text(s)})}}};item{Card(Modifier.fillMaxWidth(),shape=MaterialTheme.shapes.large,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.primary)){Column(Modifier.padding(18.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Ringkasan Hari Ini",color=MaterialTheme.colorScheme.onPrimary,style=MaterialTheme.typography.titleMedium);AssistChip(onClick={},label={Text("Hari Ini")})};Spacer(Modifier.height(12.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){DashStat("Pendapatan",money(omzet),"↑ 0%",Modifier.weight(1f));DashStat("Transaksi",count.toString(),"↑ 0%",Modifier.weight(1f))};Spacer(Modifier.height(8.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){DashStat("Kasbon",debt.toString(),"↓ 0%",Modifier.weight(1f));DashStat("Pelanggan",customers.toString(),"↑ 0%",Modifier.weight(1f))}}}};item{Text("Menu Cepat",style=MaterialTheme.typography.titleLarge)};item{Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Quick("Transaksi",Icons.Default.ReceiptLong,txGo);Quick("Kasir",Icons.Default.PointOfSale,cashGo);Quick("Kasbon",Icons.Default.AccountBalanceWallet,otherGo);Quick("Laporan",Icons.Default.Assessment,reportGo);Quick("Stok",Icons.Default.Inventory2,otherGo)}};item{Text("Aktivitas Terakhir",style=MaterialTheme.typography.titleLarge)};if(loading)item{Box(Modifier.fillMaxWidth().padding(24.dp),contentAlignment=Alignment.Center){CircularProgressIndicator()}}else if(rows.isEmpty())item{ModernEmpty("Belum ada transaksi hari ini","Transaksi baru akan tampil di sini.")}else items(rows.take(8)){ModernActivity(it)}}
+@Composable
+private fun ModernRoot(vm: AppViewModel, repo: Repository) {
+    val state by vm.state.collectAsState()
+    when {
+        state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        state.user == null -> ModernLogin(state.error, vm::login, vm::clearError)
+        else -> ModernShell(state.user!!, vm::logout, repo)
+    }
 }
-@Composable private fun DashStat(a:String,b:String,c:String,m:Modifier){Card(m,shape=MaterialTheme.shapes.medium,colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface.copy(alpha=.82f))){Column(Modifier.padding(11.dp)){Text(a,style=MaterialTheme.typography.labelSmall);Text(b,style=MaterialTheme.typography.titleMedium);Text(c,style=MaterialTheme.typography.labelSmall,color=if(c.startsWith("↑"))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)}}}
-@Composable private fun Quick(a:String,i:androidx.compose.ui.graphics.vector.ImageVector,on:()->Unit){Column(horizontalAlignment=Alignment.CenterHorizontally,modifier=Modifier.width(58.dp)){FilledTonalIconButton(onClick=on,modifier=Modifier.size(48.dp)){Icon(i,a)};Text(a,style=MaterialTheme.typography.labelSmall,maxLines=1)}}
-@Composable private fun ModernActivity(x:JsonObject){val name=x.txt("pelanggan_nama","pelanggan","nama");Card(Modifier.fillMaxWidth()){Row(Modifier.padding(12.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha=.12f)),contentAlignment=Alignment.Center){Text(avatar(name),color=MaterialTheme.colorScheme.primary)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(name,style=MaterialTheme.typography.titleMedium);Text(x.txt("created_at","tanggal"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Text(money(x.num("total","nominal","grand_total")),style=MaterialTheme.typography.labelMedium)}}}
-@Composable private fun ModernEmpty(a:String,b:String){Card(Modifier.fillMaxWidth()){Column(Modifier.fillMaxWidth().padding(22.dp),horizontalAlignment=Alignment.CenterHorizontally){Icon(Icons.Default.Inbox,null,tint=MaterialTheme.colorScheme.primary);Text(a,style=MaterialTheme.typography.titleMedium);Text(b,color=MaterialTheme.colorScheme.onSurfaceVariant)}}}
 
-@Composable private fun ModernTransactions(repo:Repository){var rows by remember{mutableStateOf(emptyList<JsonObject>())};var q by remember{mutableStateOf("")};var filter by remember{mutableStateOf("Semua")};var loading by remember{mutableStateOf(true)};var error by remember{mutableStateOf<String?>(null)};var add by remember{mutableStateOf(false)};val scope=rememberCoroutineScope();suspend fun load(f:String=filter){loading=true;runCatching{repo.transaksi(q=q.trim().takeIf(String::isNotBlank),metodeBayar=if(f=="Kasbon")"bon"else null)}.onSuccess{rows=it.itemsList()}.onFailure{error=ApiError.message(it)};loading=false};LaunchedEffect(Unit){load()};Box(Modifier.fillMaxSize()){LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(11.dp),contentPadding=PaddingValues(top=12.dp,bottom=92.dp)){item{Row(verticalAlignment=Alignment.CenterVertically){Text("Transaksi",style=MaterialTheme.typography.headlineMedium,modifier=Modifier.weight(1f));IconButton(onClick={scope.launch{load()}}){Icon(Icons.Default.Refresh,"Refresh")};IconButton(onClick={}){Icon(Icons.Default.FilterList,"Filter")}}};item{OutlinedTextField(q,{q=it},placeholder={Text("Cari transaksi")},leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true,modifier=Modifier.fillMaxWidth())};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Semua","Penjualan","Pembelian","Kasbon").forEach{s->FilterChip(selected=filter==s,onClick={filter=s;scope.launch{load(s)}},label={Text(s)})}}};if(loading)item{Box(Modifier.fillMaxWidth().padding(20.dp),contentAlignment=Alignment.Center){CircularProgressIndicator()}}else if(rows.isEmpty())item{ModernEmpty("Tidak ada transaksi","Coba ubah pencarian atau filter.")}else items(rows){ModernTxCard(it)};error?.let{item{Text(it,color=MaterialTheme.colorScheme.error)}}};FloatingActionButton(onClick={add=true},modifier=Modifier.align(Alignment.BottomEnd).padding(16.dp),containerColor=MaterialTheme.colorScheme.primary,contentColor=MaterialTheme.colorScheme.onPrimary){Icon(Icons.Default.Add,"Tambah")}};if(add)ModernCheckoutDialog(repo,{add=false;scope.launch{load()}},{add=false})}
-@Composable private fun ModernTxCard(x:JsonObject){val name=x.txt("pelanggan_nama","pelanggan","nama");val method=x.txt("metode_bayar","metode");val status=x.txt("status_konfirmasi","status");Card(Modifier.fillMaxWidth()){Row(Modifier.padding(13.dp),verticalAlignment=Alignment.CenterVertically){Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha=.12f)),contentAlignment=Alignment.Center){Text(avatar(name),color=MaterialTheme.colorScheme.primary)};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(x.txt("nomor","kode","id"),style=MaterialTheme.typography.titleMedium);Text(name);Text(x.txt("created_at","tanggal"),style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)};Column(horizontalAlignment=Alignment.End){Text(money(x.num("total","nominal","grand_total")),style=MaterialTheme.typography.titleMedium);Text(if(method=="bon")"Kasbon"else if(status.contains("lunas",true))"Lunas"else status,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.primary)}}}}
-
-private data class ModernCart(val product:JsonObject,val qty:Int)
-private fun cartAdd(c:List<ModernCart>,p:JsonObject)=c.firstOrNull{it.product.txt("id")==p.txt("id")}?.let{c.map{x->if(x.product.txt("id")==p.txt("id"))x.copy(qty=x.qty+1)else x}}?:c+ModernCart(p,1)
-private fun cartDec(c:List<ModernCart>,id:String)=c.mapNotNull{if(it.product.txt("id")!=id)it else it.copy(qty=it.qty-1).takeIf{x->x.qty>0}}
-@Composable private fun ModernCashier(repo:Repository){val scope=rememberCoroutineScope();var products by remember{mutableStateOf(emptyList<JsonObject>())};var cart by remember{mutableStateOf(emptyList<ModernCart>())};var q by remember{mutableStateOf("")};var method by remember{mutableStateOf("tunai")};var customer by remember{mutableStateOf("")};var busy by remember{mutableStateOf(false)};var msg by remember{mutableStateOf<String?>(null)};LaunchedEffect(Unit){runCatching{repo.produk()}.onSuccess{products=it.itemsList()}.onFailure{msg=ApiError.message(it)}};val shown=products.filter{q.isBlank()||it.txt("nama","sku").contains(q,true)};val total=cart.sumOf{it.product.num("harga","harga_jual")*it.qty};LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(11.dp),contentPadding=PaddingValues(top=12.dp,bottom=24.dp)){item{Text("Kasir",style=MaterialTheme.typography.headlineMedium)};item{OutlinedTextField(q,{q=it},placeholder={Text("Cari produk / scan barcode")},leadingIcon={Icon(Icons.Default.Search,null)},trailingIcon={Icon(Icons.Default.QrCodeScanner,"Scan")},singleLine=true,modifier=Modifier.fillMaxWidth())};if(cart.isNotEmpty()){item{Text("Keranjang",style=MaterialTheme.typography.titleLarge)};items(cart){line->Card(Modifier.fillMaxWidth()){Row(Modifier.padding(11.dp),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(line.product.txt("nama"),style=MaterialTheme.typography.titleMedium);Text("${line.qty} × ${money(line.product.num("harga","harga_jual"))}")};IconButton(onClick={cart=cartDec(cart,line.product.txt("id"))}){Icon(Icons.Default.Remove,"Kurangi")};Text(line.qty.toString());IconButton(onClick={cart=cartAdd(cart,line.product)}){Icon(Icons.Default.Add,"Tambah")}}}};item{Card{Column(Modifier.padding(14.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Subtotal");Text(money(total))};Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Diskon");Text(money(0))};HorizontalDivider(Modifier.padding(vertical=7.dp));Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Total",style=MaterialTheme.typography.titleLarge);Text(money(total),style=MaterialTheme.typography.titleLarge)}}}}};item{Text("Produk",style=MaterialTheme.typography.titleLarge)};items(shown.take(30)){p->Card(onClick={cart=cartAdd(cart,p)},modifier=Modifier.fillMaxWidth()){Row(Modifier.padding(11.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Inventory2,null,tint=MaterialTheme.colorScheme.primary);Spacer(Modifier.width(8.dp));Column(Modifier.weight(1f)){Text(p.txt("nama"),style=MaterialTheme.typography.titleMedium);Text("Stok ${p.num("stok")}",style=MaterialTheme.typography.bodySmall)};Text(money(p.num("harga","harga_jual")),style=MaterialTheme.typography.titleMedium)}}};item{Text("Metode Pembayaran",style=MaterialTheme.typography.titleLarge)};item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("tunai","transfer","bon","lainnya").forEach{v->FilterChip(selected=method==v,onClick={method=v},label={Text(v.replaceFirstChar{it.uppercase()})})}}};item{OutlinedTextField(customer,{customer=it.filter(Char::isDigit)},label={Text("Pelanggan ID untuk Kasbon")},singleLine=true,modifier=Modifier.fillMaxWidth())};item{Button(onClick={if(method=="bon"&&customer.toLongOrNull()==null){msg="Pelanggan wajib untuk kasbon."}else{busy=true;scope.launch{runCatching{repo.createTransaksi(buildJsonObject{putJsonArray("items"){cart.forEach{line->add(buildJsonObject{put("produk_id",line.product["id"]?:JsonNull);put("qty",line.qty)})}};put("metode_bayar",if(method=="lainnya")"cash_tunai"else method);customer.toLongOrNull()?.let{put("pelanggan_id",it)}})}.onSuccess{cart=emptyList();msg="Pembayaran berhasil disimpan."}.onFailure{msg=ApiError.message(it)};busy=false}}},enabled=cart.isNotEmpty()&&total>0&&!busy,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Memproses…"else"Bayar ${money(total)}")};msg?.let{item{Text(it,color=if(it.contains("berhasil"))MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)}}}}
+@Composable
+private fun ModernLogin(error: String?, login: (String, String) -> Unit, clear: () -> Unit) {
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Default.PhoneAndroid, null, Modifier.size(58.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(12.dp))
+        Text("IRKOP CELL", style = MaterialTheme.typography.headlineLarge)
+        Text("POS & Buku Kas Digital", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(password, { password = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, modifier = Modifier.fillMaxWidth())
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = { login(username.trim(), password) }, enabled = username.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Masuk") }
+        if (!error.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(error, color = MaterialTheme.colorScheme.error)
+            LaunchedEffect(error) { clear() }
+        }
+    }
 }
+
+private data class AppTab(val route: String, val label: String, val icon: ImageVector, val enabled: Boolean)
+
+@Composable
+private fun ModernShell(user: UserSession, logout: () -> Unit, repo: Repository) {
+    var tab by remember { mutableStateOf("dashboard") }
+    val tabs = listOf(
+        AppTab("dashboard", "Dashboard", Icons.Default.Home, AuthPolicy.canAccess(user, AuthPolicy.DASHBOARD)),
+        AppTab("transaksi", "Transaksi", Icons.Default.ReceiptLong, AuthPolicy.canAccess(user, AuthPolicy.TRANSAKSI)),
+        AppTab("kasir", "Kasir", Icons.Default.PointOfSale, AuthPolicy.canAccess(user, AuthPolicy.KASIR)),
+        AppTab("laporan", "Laporan", Icons.Default.Assessment, AuthPolicy.canAccess(user, AuthPolicy.LAPORAN)),
+        AppTab("lainnya", "Lainnya", Icons.Default.MoreHoriz, true)
+    )
+    if (tabs.none { it.route == tab && it.enabled }) tab = tabs.firstOrNull { it.enabled }?.route ?: "lainnya"
+    Scaffold(
+        topBar = {
+            if (tab == "dashboard") TopAppBar(
+                title = { Column { Text("IRKOP CELL"); Text(user.nama.ifBlank { user.username }, style = MaterialTheme.typography.labelSmall) } },
+                navigationIcon = { IconButton(onClick = { tab = "lainnya" }) { Icon(Icons.Default.Menu, "Menu") } },
+                actions = { IconButton(onClick = {}) { Icon(Icons.Default.NotificationsNone, "Notifikasi") }; IconButton(onClick = logout) { Icon(Icons.Default.Logout, "Keluar") } }
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                tabs.forEach { item ->
+                    NavigationBarItem(selected = tab == item.route, enabled = item.enabled, onClick = { if (item.enabled) tab = item.route }, icon = { Icon(item.icon, item.label) }, label = { Text(item.label) })
+                }
+            }
+        }
+    ) { pad ->
+        Box(Modifier.fillMaxSize().padding(pad)) {
+            when (tab) {
+                "dashboard" -> ModernDashboard(repo, { tab = "transaksi" }, { tab = "kasir" }, { tab = "lainnya" }, { tab = "laporan" })
+                "transaksi" -> ModernTransactions(repo)
+                "kasir" -> ModernCashier(repo)
+                "laporan" -> ModernReport(repo)
+                else -> ParityExtrasScreen(user, repo)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernDashboard(repo: Repository, txGo: () -> Unit, cashGo: () -> Unit, otherGo: () -> Unit, reportGo: () -> Unit) {
+    var tx by remember { mutableStateOf<JsonObject?>(null) }
+    var kb by remember { mutableStateOf<JsonObject?>(null) }
+    var pl by remember { mutableStateOf<JsonObject?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        val a = runCatching { repo.transaksi(tanggal = LocalDate.now().toString()) }.getOrNull()
+        val b = runCatching { repo.kasbon() }.getOrNull()
+        val c = runCatching { repo.pelanggan() }.getOrNull()
+        tx = a; kb = b; pl = c; loading = false
+    }
+    val rows = tx?.itemsList().orEmpty()
+    val omzet = tx?.num("total_nilai", "total_omzet", "omzet") ?: rows.sumOf { it.num("total", "nominal", "grand_total") }
+    val count = tx?.num("jumlah_transaksi", "transaksi", "total_items") ?: rows.size.toLong()
+    val debt = kb?.itemsList()?.count { it.txt("status", "status_pembayaran").contains("belum", true) } ?: 0
+    val customers = pl?.num("jumlah_pelanggan", "total_pelanggan") ?: pl?.itemsList()?.size?.toLong() ?: 0
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
+        item { Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Pelanggan", "Kasbon", "Service HP", "Akun Uang").forEachIndexed { i, s -> FilterChip(selected = i == 0, onClick = {}, label = { Text(s) }) } } }
+        item {
+            Card(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Ringkasan Hari Ini", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleMedium); AssistChip(onClick = {}, label = { Text("Hari Ini") }) }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { DashStat("Pendapatan", money(omzet), "↑ 0%", Modifier.weight(1f)); DashStat("Transaksi", count.toString(), "↑ 0%", Modifier.weight(1f)) }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { DashStat("Kasbon", debt.toString(), "↓ 0%", Modifier.weight(1f)); DashStat("Pelanggan", customers.toString(), "↑ 0%", Modifier.weight(1f)) }
+                }
+            }
+        }
+        item { Text("Menu Cepat", style = MaterialTheme.typography.titleLarge) }
+        item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Quick("Transaksi", Icons.Default.ReceiptLong, txGo); Quick("Kasir", Icons.Default.PointOfSale, cashGo); Quick("Kasbon", Icons.Default.AccountBalanceWallet, otherGo); Quick("Laporan", Icons.Default.Assessment, reportGo); Quick("Stok", Icons.Default.Inventory2, otherGo) } }
+        item { Text("Aktivitas Terakhir", style = MaterialTheme.typography.titleLarge) }
+        if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        else if (rows.isEmpty()) item { ModernEmpty("Belum ada transaksi hari ini", "Transaksi baru akan tampil di sini.") }
+        else items(rows.take(8)) { ModernActivity(it) }
+    }
+}
+
+@Composable private fun DashStat(a: String, b: String, c: String, modifier: Modifier) { Card(modifier, shape = MaterialTheme.shapes.medium, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = .82f))) { Column(Modifier.padding(11.dp)) { Text(a, style = MaterialTheme.typography.labelSmall); Text(b, style = MaterialTheme.typography.titleMedium); Text(c, style = MaterialTheme.typography.labelSmall, color = if (c.startsWith("↑")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) } } }
+@Composable private fun Quick(a: String, icon: ImageVector, onClick: () -> Unit) { Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(58.dp)) { FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { Icon(icon, a) }; Text(a, style = MaterialTheme.typography.labelSmall, maxLines = 1) } }
+@Composable private fun ModernActivity(x: JsonObject) { val name = x.txt("pelanggan_nama", "pelanggan", "nama"); Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = .12f)), contentAlignment = Alignment.Center) { Text(avatar(name), color = MaterialTheme.colorScheme.primary) }; Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(name, style = MaterialTheme.typography.titleMedium); Text(x.txt("created_at", "tanggal"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Text(money(x.num("total", "nominal", "grand_total")), style = MaterialTheme.typography.labelMedium) } } }
+@Composable private fun ModernEmpty(a: String, b: String) { Card(Modifier.fillMaxWidth()) { Column(Modifier.fillMaxWidth().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.Inbox, null, tint = MaterialTheme.colorScheme.primary); Text(a, style = MaterialTheme.typography.titleMedium); Text(b, color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+
+@Composable
+private fun ModernTransactions(repo: Repository) {
+    var rows by remember { mutableStateOf(emptyList<JsonObject>()) }
+    var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("Semua") }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var add by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    suspend fun load(selected: String = filter) {
+        loading = true
+        runCatching { repo.transaksi(q = query.trim().takeIf(String::isNotBlank), metodeBayar = if (selected == "Kasbon") "bon" else null) }
+            .onSuccess { rows = it.itemsList(); error = null }
+            .onFailure { error = ApiError.message(it) }
+        loading = false
+    }
+    LaunchedEffect(Unit) { load() }
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(11.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 92.dp)) {
+            item { Row(verticalAlignment = Alignment.CenterVertically) { Text("Transaksi", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f)); IconButton(onClick = { scope.launch { load() } }) { Icon(Icons.Default.Refresh, "Refresh") } } }
+            item { OutlinedTextField(query, { query = it }, placeholder = { Text("Cari transaksi") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Semua", "Penjualan", "Pembelian", "Kasbon").forEach { value -> FilterChip(selected = filter == value, onClick = { filter = value; scope.launch { load(value) } }, label = { Text(value) }) } } }
+            if (loading) item { Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            else if (rows.isEmpty()) item { ModernEmpty("Tidak ada transaksi", "Coba ubah pencarian atau filter.") }
+            else items(rows) { ModernTxCard(it) }
+            error?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+        }
+        FloatingActionButton(onClick = { add = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) { Icon(Icons.Default.Add, "Tambah") }
+    }
+    if (add) ModernCheckoutDialog(repo, { add = false; scope.launch { load() } }, { add = false })
+}
+
+@Composable private fun ModernTxCard(x: JsonObject) { val name = x.txt("pelanggan_nama", "pelanggan", "nama"); val method = x.txt("metode_bayar", "metode"); val status = x.txt("status_konfirmasi", "status"); Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = .12f)), contentAlignment = Alignment.Center) { Text(avatar(name), color = MaterialTheme.colorScheme.primary) }; Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(x.txt("nomor", "kode", "id"), style = MaterialTheme.typography.titleMedium); Text(name); Text(x.txt("created_at", "tanggal"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }; Column(horizontalAlignment = Alignment.End) { Text(money(x.num("total", "nominal", "grand_total")), style = MaterialTheme.typography.titleMedium); Text(if (method == "bon") "Kasbon" else if (status.contains("lunas", true)) "Lunas" else status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) } } } }
+
+private data class ModernCart(val product: JsonObject, val qty: Int)
+private fun cartAdd(cart: List<ModernCart>, product: JsonObject): List<ModernCart> { val id = product.txt("id"); val found = cart.any { it.product.txt("id") == id }; return if (found) cart.map { if (it.product.txt("id") == id) it.copy(qty = it.qty + 1) else it } else cart + ModernCart(product, 1) }
+private fun cartDec(cart: List<ModernCart>, id: String): List<ModernCart> = cart.mapNotNull { if (it.product.txt("id") != id) it else it.copy(qty = it.qty - 1).takeIf { line -> line.qty > 0 } }
+
+@Composable
+private fun ModernCashier(repo: Repository) {
+    val scope = rememberCoroutineScope()
+    var products by remember { mutableStateOf(emptyList<JsonObject>()) }
+    var cart by remember { mutableStateOf(emptyList<ModernCart>()) }
+    var query by remember { mutableStateOf("") }
+    var method by remember { mutableStateOf("tunai") }
+    var customer by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { runCatching { repo.produk() }.onSuccess { products = it.itemsList() }.onFailure { message = ApiError.message(it) } }
+    val shown = products.filter { query.isBlank() || it.txt("nama", "sku").contains(query, true) }
+    val total = cart.sumOf { it.product.num("harga", "harga_jual") * it.qty }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(11.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
+        item { Text("Kasir", style = MaterialTheme.typography.headlineMedium) }
+        item { OutlinedTextField(query, { query = it }, placeholder = { Text("Cari produk / scan barcode") }, leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { Icon(Icons.Default.QrCodeScanner, "Scan") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
+        if (cart.isNotEmpty()) {
+            item { Text("Keranjang", style = MaterialTheme.typography.titleLarge) }
+            items(cart) { line ->
+                Card(Modifier.fillMaxWidth()) { Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(line.product.txt("nama"), style = MaterialTheme.typography.titleMedium); Text("${line.qty} × ${money(line.product.num("harga", "harga_jual"))}") }; IconButton(onClick = { cart = cartDec(cart, line.product.txt("id")) }) { Icon(Icons.Default.Remove, "Kurangi") }; Text(line.qty.toString()); IconButton(onClick = { cart = cartAdd(cart, line.product) }) { Icon(Icons.Default.Add, "Tambah") } } }
+            }
+            item { Card { Column(Modifier.padding(14.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Subtotal"); Text(money(total)) }; Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Diskon"); Text(money(0)) }; HorizontalDivider(Modifier.padding(vertical = 7.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Total", style = MaterialTheme.typography.titleLarge); Text(money(total), style = MaterialTheme.typography.titleLarge) } } } }
+        }
+        item { Text("Produk", style = MaterialTheme.typography.titleLarge) }
+        items(shown.take(30)) { product -> Card(onClick = { cart = cartAdd(cart, product) }, modifier = Modifier.fillMaxWidth()) { Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Inventory2, null, tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(8.dp)); Column(Modifier.weight(1f)) { Text(product.txt("nama"), style = MaterialTheme.typography.titleMedium); Text("Stok ${product.num("stok")}", style = MaterialTheme.typography.bodySmall) }; Text(money(product.num("harga", "harga_jual")), style = MaterialTheme.typography.titleMedium) } } }
+        item { Text("Metode Pembayaran", style = MaterialTheme.typography.titleLarge) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("tunai", "transfer", "bon", "lainnya").forEach { value -> FilterChip(selected = method == value, onClick = { method = value }, label = { Text(value.replaceFirstChar { it.uppercase() }) }) } } }
+        item { OutlinedTextField(customer, { customer = it.filter(Char::isDigit) }, label = { Text("Pelanggan ID untuk Kasbon") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
+        item { Button(onClick = {
+            if (method == "bon" && customer.toLongOrNull() == null) {
+                message = "Pelanggan wajib untuk kasbon."
+            } else {
+                busy = true
+                scope.launch {
+                    runCatching {
+                        repo.createTransaksi(buildJsonObject {
+                            putJsonArray("items") { cart.forEach { line -> add(buildJsonObject { put("produk_id", line.product["id"] ?: JsonNull); put("qty", line.qty) }) } }
+                            put("metode_bayar", if (method == "lainnya") "cash_tunai" else method)
+                            customer.toLongOrNull()?.let { put("pelanggan_id", it) }
+                        })
+                    }.onSuccess { cart = emptyList(); message = "Pembayaran berhasil disimpan." }.onFailure { message = ApiError.message(it) }
+                    busy = false
+                }
+            }
+        }, enabled = cart.isNotEmpty() && total > 0 && !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "Memproses…" else "Bayar ${money(total)}") } }
+        message?.let { text -> item { Text(text, color = if (text.contains("berhasil")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error) } }
+    }
+}
+
+@Composable
+private fun ModernReport(repo: Repository) {
+    var rows by remember { mutableStateOf(emptyList<JsonObject>()) }
+    var loading by remember { mutableStateOf(true) }
+    var tab by remember { mutableStateOf("Ringkasan") }
+    LaunchedEffect(Unit) { runCatching { repo.transaksi() }.onSuccess { rows = it.itemsList() }; loading = false }
+    val total = rows.sumOf { it.num("total", "nominal", "grand_total") }
+    val average = if (rows.isEmpty()) 0L else total / rows.size
+    val kasbon = rows.count { it.txt("metode_bayar", "metode") == "bon" }
+    val profit = rows.sumOf { it.num("keuntungan", "profit", "laba") }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
+        item { Text("Laporan", style = MaterialTheme.typography.headlineMedium) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Ringkasan", "Penjualan", "Kasbon", "Produk").forEach { value -> FilterChip(selected = tab == value, onClick = { tab = value }, label = { Text(value) }) } } }
+        item { OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.CalendarMonth, null); Spacer(Modifier.width(8.dp)); Text("Hari ini") } }
+        if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+        else {
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReportMetric("Total Penjualan", money(total), Modifier.weight(1f)); ReportMetric("Transaksi", rows.size.toString(), Modifier.weight(1f)) } }
+            item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReportMetric("Kasbon", kasbon.toString(), Modifier.weight(1f)); ReportMetric(if (profit > 0) "Keuntungan" else "Rata-rata", money(if (profit > 0) profit else average), Modifier.weight(1f)) } }
+            item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("Grafik Pendapatan", style = MaterialTheme.typography.titleLarge); Spacer(Modifier.height(18.dp)); Text("${rows.size} transaksi terdata pada periode laporan.", color = MaterialTheme.colorScheme.onSurfaceVariant) } } }
+            if (tab == "Penjualan") item { ModernEmpty("Detail penjualan", "Gunakan daftar Transaksi untuk membuka detail setiap invoice.") }
+            if (tab == "Kasbon") item { ModernEmpty("Laporan kasbon", "Data kasbon tetap tersedia di menu Lainnya.") }
+            if (tab == "Produk") item { ModernEmpty("Laporan produk", "Data produk dan stok tersedia di menu Lainnya.") }
+        }
+    }
+}
+
+@Composable private fun ReportMetric(title: String, value: String, modifier: Modifier) { Card(modifier) { Column(Modifier.padding(14.dp)) { Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant); Text(value, style = MaterialTheme.typography.titleLarge) } } }

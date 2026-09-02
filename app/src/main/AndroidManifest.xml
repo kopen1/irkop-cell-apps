@@ -1,13 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-
     <application
         android:allowBackup="false"
         android:label="IRKOP CELL"
         android:supportsRtl="true"
         android:theme="@style/Theme.IrkopCell">
         <activity
-            android:name=".MainActivity"
+            android:name=".ModernMainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

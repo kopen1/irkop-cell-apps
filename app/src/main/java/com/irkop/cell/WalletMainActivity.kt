@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -65,7 +66,8 @@ class WalletMainActivity : ComponentActivity() {
 }
 
 @Composable private fun WalletLogin(error: String?, login: (String, String) -> Unit, clear: () -> Unit) {
-    var user by remember { mutableStateOf("") }; var pass by remember { mutableStateOf("") }
+    var user by remember { mutableStateOf("") }
+    var pass by remember { mutableStateOf("") }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxWidth().padding(24.dp).align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(68.dp).clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.primary), Alignment.Center) { Icon(Icons.Default.AccountBalanceWallet, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(36.dp)) }
@@ -103,9 +105,11 @@ private enum class WalletTab(val label: String, val icon: ImageVector) { HOME("H
 }
 
 @Composable private fun WalletHome(repo: Repository, tx: () -> Unit, kasir: () -> Unit, other: () -> Unit, report: () -> Unit) {
-    var data by remember { mutableStateOf<JsonObject?>(null) }; var loading by remember { mutableStateOf(true) }
+    var data by remember { mutableStateOf<JsonObject?>(null) }
+    var loading by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) { runCatching { repo.transaksi() }.onSuccess { data = it }; loading = false }
-    val rows = data?.rows().orEmpty(); val balance = data?.n("total_nilai", "total_omzet", "omzet") ?: rows.sumOf { it.n("total", "nominal", "grand_total") }
+    val rows = data?.rows().orEmpty()
+    val balance = data?.n("total_nilai", "total_omzet", "omzet") ?: rows.sumOf { it.n("total", "nominal", "grand_total") }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(top = 10.dp, bottom = 24.dp)) {
         item { Text("Selamat datang 👋", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant); Text("Kelola toko lebih cepat hari ini", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item { BalanceCard(balance, rows.size, tx) }
@@ -119,7 +123,7 @@ private enum class WalletTab(val label: String, val icon: ImageVector) { HOME("H
 @Composable private fun SectionTitle(title: String, action: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); if (action != null) TextButton(action) { Text("Lihat semua") } } }
 
 @Composable private fun BalanceCard(balance: Long, count: Int, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth(), onClick = onClick, shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
+    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
         Column(Modifier.background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer))).padding(22.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("Saldo operasional", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Medium); Icon(Icons.Default.AccountBalanceWallet, null, tint = MaterialTheme.colorScheme.onPrimary) }
             Spacer(Modifier.height(7.dp)); Text(Rupiah.format(balance), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold); Spacer(Modifier.height(18.dp))

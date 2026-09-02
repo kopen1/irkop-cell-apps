@@ -69,6 +69,7 @@ jobs:
           test -f app/src/main/java/com/irkop/cell/data/ApiService.kt
           test -f app/src/main/java/com/irkop/cell/data/Repository.kt
           test -f app/src/main/java/com/irkop/cell/MainActivity.kt
+          test -f app/src/androidTest/java/com/irkop/cell/LiveCrudE2ETest.kt
 
           echo "Source structure PASS."
 
@@ -78,25 +79,31 @@ jobs:
           set -e
           ./gradlew test
 
+      - name: Run live Android login + CRUD E2E
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: Pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: ./gradlew connectedDebugAndroidTest --stacktrace
+
       - name: Run lint
         shell: bash
         run: |
           set -e
           ./gradlew lint
 
-      - name: Verify no APK artifact
+      - name: Verify no committed APK artifact
         shell: bash
         run: |
           set -e
 
-          if find . \
-            -path './.git' -prune -o \
-            -type f \
-            \( -name '*.apk' -o -name '*.aab' \) \
-            -print \
-            | grep -q .; then
-            echo "ERROR: APK/AAB ditemukan."
+          if git ls-files | grep -qE '\.(apk|aab)$'; then
+            echo "ERROR: APK/AAB ter-commit ke repository."
             exit 1
           fi
 
-          echo "TEST ONLY confirmed."
+          echo "No committed APK/AAB PASS."

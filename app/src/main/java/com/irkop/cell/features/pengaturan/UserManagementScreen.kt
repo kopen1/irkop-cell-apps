@@ -14,13 +14,12 @@ import kotlinx.serialization.json.*
 
 private fun JsonObject.s(vararg k:String)=k.firstNotNullOfOrNull{this[it]?.jsonPrimitive?.contentOrNull?.takeIf(String::isNotBlank)}?:"-"
 private fun JsonObject.permissions()=this["permissions"]?.jsonArray?.mapNotNull{it.jsonPrimitive.contentOrNull}?.toSet()?:emptySet()
-
 private val pages=listOf("dashboard","transaksi","kasir","laporan","daftar_barang","laporan_service_hp","kasbon","pelanggan","pengeluaran","pengaturan")
 
 @Composable
 fun UserManagementScreen(repo:Repository){
     var users by remember{mutableStateOf(emptyList<JsonObject>())};var selected by remember{mutableStateOf<JsonObject?>(null)};var create by remember{mutableStateOf(false)};var error by remember{mutableStateOf<String?>(null)};val scope=rememberCoroutineScope()
-    fun load(){scope.launch{runCatching{repo.users()}.onSuccess{root->users=if(root["items"] is JsonArray)root["items"]!!.jsonArray.filterIsInstance<JsonObject>() else emptyList();error=null}.onFailure{error=it.message}}}
+    fun load(){scope.launch{runCatching{repo.users()}.onSuccess{root->users=when(root){is JsonArray->root.filterIsInstance<JsonObject>();is JsonObject->root["items"]?.jsonArray?.filterIsInstance<JsonObject>()?:emptyList();else->emptyList()};error=null}.onFailure{error=it.message}}}
     LaunchedEffect(Unit){load()}
     Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("Manajemen User",style=MaterialTheme.typography.headlineMedium);Button({create=true}){Text("Tambah user")}}

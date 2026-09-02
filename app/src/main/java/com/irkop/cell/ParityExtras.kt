@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import com.irkop.cell.core.AuthPolicy
 import com.irkop.cell.core.UserSession
 import com.irkop.cell.data.Repository
+import com.irkop.cell.features.admin.CorrectionsScreen
 import com.irkop.cell.features.admin.OperationsScreen
 import com.irkop.cell.features.akun.AkunUangScreen
 import com.irkop.cell.features.kasbon.KasbonDetailScreen
@@ -27,6 +28,7 @@ fun ParityExtrasScreen(user: UserSession, repo: Repository) {
         if (AuthPolicy.canAccess(user, AuthPolicy.LAPORAN)) add("laporan" to "Laporan")
         if (user.role.equals("admin", true)) add("admin" to "User & Permission")
         if (user.role.equals("admin", true)) add("ops" to "Operasional")
+        if (user.role.equals("admin", true)) add("koreksi" to "Koreksi")
     }
     LaunchedEffect(tabs) { if (tabs.none { it.first == tab }) tab = tabs.firstOrNull()?.first ?: "pelanggan" }
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -41,6 +43,7 @@ fun ParityExtrasScreen(user: UserSession, repo: Repository) {
             "laporan" -> LaporanAnalyticsScreen(repo)
             "admin" -> UserManagementScreen(repo)
             "ops" -> OperationsScreen(user, repo)
+            "koreksi" -> CorrectionsScreen(repo)
         }
     }
 }

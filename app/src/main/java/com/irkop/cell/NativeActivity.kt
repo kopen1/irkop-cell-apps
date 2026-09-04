@@ -54,11 +54,11 @@ private enum class Page{HOME,KASIR,TRANSAKSI,LAPORAN,STOK,KATEGORI,SERVICE,KASBO
 @Composable private fun AppShell(api:ApiClient){
     var page by remember{mutableStateOf(Page.HOME)};var sheet by remember{mutableStateOf(false)};var search by remember{mutableStateOf(false)}
     Scaffold(containerColor=Scheme.background,bottomBar={NavigationBar(containerColor=Low){
-        NavigationBarItem(page==Page.HOME,{page=Page.HOME},{Icon(Icons.Default.Home,"Beranda")},{Text("Beranda")})
-        NavigationBarItem(page==Page.KASIR,{page=Page.KASIR},{Icon(Icons.Default.PointOfSale,"Kasir")},{Text("Kasir")})
-        NavigationBarItem(page==Page.LAPORAN,{page=Page.LAPORAN},{Icon(Icons.Default.Assessment,"Laporan")},{Text("Laporan")})
-        NavigationBarItem(page==Page.LAINNYA,{page=Page.LAINNYA},{Icon(Icons.Default.MoreHoriz,"Lainnya")},{Text("Lainnya")})
-    }},floatingActionButton={if(page!=Page.PENGATURAN)FloatingActionButton({sheet=true},containerColor=Scheme.primary,contentColor=Scheme.onPrimary){Icon(Icons.Default.Add,"Transaksi Baru")}}){p->
+        NavigationBarItem(selected=page==Page.HOME,onClick={page=Page.HOME},icon={Icon(Icons.Default.Home,"Beranda")},label={Text("Beranda")})
+        NavigationBarItem(selected=page==Page.KASIR,onClick={page=Page.KASIR},icon={Icon(Icons.Default.PointOfSale,"Kasir")},label={Text("Kasir")})
+        NavigationBarItem(selected=page==Page.LAPORAN,onClick={page=Page.LAPORAN},icon={Icon(Icons.Default.Assessment,"Laporan")},label={Text("Laporan")})
+        NavigationBarItem(selected=page==Page.LAINNYA,onClick={page=Page.LAINNYA},icon={Icon(Icons.Default.MoreHoriz,"Lainnya")},label={Text("Lainnya")})
+    }},floatingActionButton={if(page!=Page.PENGATURAN)FloatingActionButton(onClick={sheet=true},containerColor=Scheme.primary,contentColor=Scheme.onPrimary){Icon(Icons.Default.Add,"Transaksi Baru")}}){p->
         when(page){Page.HOME->HomePage(p,{search=true},{page=it});Page.KASIR->CashierPage(p,api);Page.TRANSAKSI->TransactionPage(p,api){page=Page.HOME};Page.LAPORAN->ReportPage(p,api,{search=true});Page.STOK->StockPage(p);Page.KATEGORI->CategoryPage(p);Page.SERVICE->ServicePage(p);Page.KASBON->KasbonPage(p);Page.PELANGGAN->CustomerPage(p);Page.PENGELUARAN->ExpensePage(p);Page.GAJI->PayrollPage(p);Page.LAINNYA->MorePage(p){page=it};Page.PENGATURAN->SettingsPage(p,api)}
     }
     if(sheet)TransactionSheet(api){sheet=false};if(search)SearchDialog{search=false}

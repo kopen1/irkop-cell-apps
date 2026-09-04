@@ -5,15 +5,77 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Wallet
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,93 +86,376 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 
-private val Scheme = darkColorScheme(
-    primary=Color(0xFF70D8C8), onPrimary=Color(0xFF003731), primaryContainer=Color(0xFF32A192),
-    onPrimaryContainer=Color(0xFF00201B), secondary=Color(0xFF4EDEA3), tertiary=Color(0xFFADC6FF),
-    background=Color(0xFF131313), onBackground=Color(0xFFE5E2E1), surface=Color(0xFF131313),
-    onSurface=Color(0xFFE5E2E1), surfaceVariant=Color(0xFF353535), onSurfaceVariant=Color(0xFFBCC9C5),
-    outline=Color(0xFF879390), error=Color(0xFFFFB4AB)
+private val AppColors = darkColorScheme(
+    primary = Color(0xFF70D8C8),
+    onPrimary = Color(0xFF003731),
+    primaryContainer = Color(0xFF32A192),
+    onPrimaryContainer = Color(0xFF00201B),
+    secondary = Color(0xFF4EDEA3),
+    tertiary = Color(0xFFADC6FF),
+    background = Color(0xFF131313),
+    onBackground = Color(0xFFE5E2E1),
+    surface = Color(0xFF131313),
+    onSurface = Color(0xFFE5E2E1),
+    surfaceVariant = Color(0xFF353535),
+    onSurfaceVariant = Color(0xFFBCC9C5),
+    outline = Color(0xFF879390),
+    error = Color(0xFFFFB4AB)
 )
-private val Low=Color(0xFF1B1B1C)
-private val Mid=Color(0xFF202020)
-private val High=Color(0xFF2A2A2A)
-private val Muted=Color(0xFFBCC9C5)
-private val Success=Color(0xFF4EDEA3)
 
-class NativeActivity:ComponentActivity(){
-    override fun onCreate(state:Bundle?){super.onCreate(state);setContent{MaterialTheme(colorScheme=Scheme){AutoLogin()}}}
-}
-private enum class Page{HOME,KASIR,TRANSAKSI,LAPORAN,STOK,KATEGORI,SERVICE,KASBON,PELANGGAN,PENGELUARAN,GAJI,LAINNYA,PENGATURAN}
+private val SurfaceLow = Color(0xFF1B1B1C)
+private val SurfaceMid = Color(0xFF202020)
+private val SurfaceHigh = Color(0xFF2A2A2A)
+private val Muted = Color(0xFFBCC9C5)
+private val Success = Color(0xFF4EDEA3)
 
-@Composable private fun AutoLogin(){
-    val context=LocalContext.current;val api=remember(context){ApiClient(context)};val scope=rememberCoroutineScope()
-    var ready by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
-    fun login(){scope.launch{error="";try{api.login("demo","demodemo");ready=true}catch(e:Exception){error=e.message?:"Login gagal"}}}
-    LaunchedEffect(Unit){login()}
-    if(ready)AppShell(api)else Box(Modifier.fillMaxSize().background(Scheme.background),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)){Text("Irkop Cell",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold);CircularProgressIndicator(color=Scheme.primary);Text(if(error.isBlank())"Menyiapkan sesi kasir…" else error,color=if(error.isBlank())Muted else Scheme.error);if(error.isNotBlank())Button(::login){Text("Coba Lagi")}}}
+private enum class Page {
+    HOME, KASIR, TRANSAKSI, LAPORAN, STOK, KATEGORI, SERVICE,
+    KASBON, PELANGGAN, PENGELUARAN, GAJI, LAINNYA, PENGATURAN
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun AppShell(api:ApiClient){
-    var page by remember{mutableStateOf(Page.HOME)};var sheet by remember{mutableStateOf(false)};var search by remember{mutableStateOf(false)}
-    Scaffold(containerColor=Scheme.background,bottomBar={NavigationBar(containerColor=Low){
-        NavigationBarItem(selected=page==Page.HOME,onClick={page=Page.HOME},icon={Icon(Icons.Default.Home,"Beranda")},label={Text("Beranda")})
-        NavigationBarItem(selected=page==Page.KASIR,onClick={page=Page.KASIR},icon={Icon(Icons.Default.PointOfSale,"Kasir")},label={Text("Kasir")})
-        NavigationBarItem(selected=page==Page.LAPORAN,onClick={page=Page.LAPORAN},icon={Icon(Icons.Default.Assessment,"Laporan")},label={Text("Laporan")})
-        NavigationBarItem(selected=page==Page.LAINNYA,onClick={page=Page.LAINNYA},icon={Icon(Icons.Default.MoreHoriz,"Lainnya")},label={Text("Lainnya")})
-    }},floatingActionButton={if(page!=Page.PENGATURAN)FloatingActionButton(onClick={sheet=true},containerColor=Scheme.primary,contentColor=Scheme.onPrimary){Icon(Icons.Default.Add,"Transaksi Baru")}}){p->
-        when(page){Page.HOME->HomePage(p,{search=true},{page=it});Page.KASIR->CashierPage(p,api);Page.TRANSAKSI->TransactionPage(p,api){page=Page.HOME};Page.LAPORAN->ReportPage(p,api,{search=true});Page.STOK->StockPage(p);Page.KATEGORI->CategoryPage(p);Page.SERVICE->ServicePage(p);Page.KASBON->KasbonPage(p);Page.PELANGGAN->CustomerPage(p);Page.PENGELUARAN->ExpensePage(p);Page.GAJI->PayrollPage(p);Page.LAINNYA->MorePage(p){page=it};Page.PENGATURAN->SettingsPage(p,api)}
+class NativeActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { MaterialTheme(colorScheme = AppColors) { AutoLoginScreen() } }
     }
-    if(sheet)TransactionSheet(api){sheet=false};if(search)SearchDialog{search=false}
 }
 
-@Composable private fun Header(title:String,sub:String?=null,back:(()->Unit)?=null,add:(()->Unit)?=null){Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){if(back!=null)IconButton(back){Icon(Icons.Default.ArrowBack,"Kembali")};Column(Modifier.weight(1f)){Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);if(sub!=null)Text(sub,color=Muted,style=MaterialTheme.typography.bodySmall)};if(add!=null)IconButton(add){Icon(Icons.Default.Add,"Tambah")}}}
-@Composable private fun Badge(t:String,c:Color=Success){Surface(color=High,shape=RoundedCornerShape(50)){Text(t,Modifier.padding(horizontal=10.dp,vertical=6.dp),color=c,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)}}
-@Composable private fun Metric(title:String,value:String,note:String,modifier:Modifier=Modifier){Card(modifier,colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Column(Modifier.padding(13.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){Text(title,color=Muted,style=MaterialTheme.typography.labelSmall);Text(value,fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium);Text(note,color=Success,style=MaterialTheme.typography.labelSmall)}}}
-@Composable private fun Quick(modifier:Modifier,icon:ImageVector,label:String,onClick:()->Unit){Card(modifier.clickable(onClick),colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Column(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)){Icon(icon,null,tint=Scheme.primary);Text(label,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold)}}}
+@Composable
+private fun AutoLoginScreen() {
+    val context = LocalContext.current
+    val api = remember(context) { ApiClient(context) }
+    val scope = rememberCoroutineScope()
+    var ready by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
 
-@Composable private fun HomePage(p:PaddingValues,search:()->Unit,go:(Page)->Unit){LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(16.dp,8.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Irkop Cell",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Sesi Kasir: Aktif",color=Success,fontWeight=FontWeight.Bold)};IconButton(search){Icon(Icons.Default.Search,"Cari")};Surface(Modifier.size(40.dp),CircleShape,Scheme.primaryContainer){Box(contentAlignment=Alignment.Center){Text("D",fontWeight=FontWeight.Bold)}}}}
-item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp),modifier=Modifier.clickable{go(Page.KASIR)}){Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Row{Column(Modifier.weight(1f)){Text("Sesi Kasir Aktif",fontWeight=FontWeight.Bold);Text("Siti Aminah • Shift Pagi • 08:00 WIB",color=Muted,style=MaterialTheme.typography.bodySmall)};Badge("AKTIF")};Row{Metric("Saldo awal","Rp 1.500.000","Opening",Modifier.weight(1f));Spacer(Modifier.width(8.dp));Metric("Saldo berjalan","Rp 5.750.000","Real-time",Modifier.weight(1f))};Text("Kelola sesi & rekonsiliasi",color=Scheme.primary,fontWeight=FontWeight.Bold)}}}
-item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Metric("Saldo Kas Laci","Rp 1.450.000","Real-time",Modifier.weight(1f));Metric("Omzet Hari Ini","Rp 7.420.000","82% target",Modifier.weight(1f));Metric("Transaksi","52","Nota",Modifier.weight(1f))}}
-item{Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){Row{Text("Perlu Perhatian Segera",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("3 tindakan",color=Scheme.error)};Attention("3 Servis Siap Diambil","Kirim notifikasi WA",Icons.Default.Build){go(Page.SERVICE)};Attention("Kasbon Jatuh Tempo Hari Ini","2 pelanggan • Rp 320.000",Icons.Default.ReceiptLong){go(Page.KASBON)};Attention("Selisih Belum Ditoleransi","Shift malam • -Rp 15.000",Icons.Default.AccountBalanceWallet){go(Page.KASIR)}}}}
-item{Text("Menu Kasir Utama",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)}
-item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Inventory2,"Stok"){go(Page.STOK)};Quick(Modifier.weight(1f),Icons.Default.ReceiptLong,"Kasbon"){go(Page.KASBON)};Quick(Modifier.weight(1f),Icons.Default.People,"Pelanggan"){go(Page.PELANGGAN)};Quick(Modifier.weight(1f),Icons.Default.Wallet,"Pengeluaran"){go(Page.PENGELUARAN)}}}
-item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Build,"Servis"){go(Page.SERVICE)};Quick(Modifier.weight(1f),Icons.Default.Group,"Gaji"){go(Page.GAJI)};Quick(Modifier.weight(1f),Icons.Default.Assessment,"Laporan"){go(Page.LAPORAN)};Quick(Modifier.weight(1f),Icons.Default.Settings,"Setting"){go(Page.PENGATURAN)}}}
-item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp)){Row{Text("Aktivitas Terakhir",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("Lihat Semua",color=Scheme.primary)};listOf("Paket Data Telkomsel 50GB • Rp 105.000","Ganti LCD Samsung A12 • Rp 380.000","Top Up DANA Saldo 100k • Rp 102.500","Pulsa Indosat Reguler 25k • Rp 26.500").forEach{Text(it,Modifier.padding(vertical=8.dp))}}}}
-}}
-@Composable private fun Attention(t:String,s:String,i:ImageVector,click:()->Unit){Row(Modifier.fillMaxWidth().clickable(click),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(40.dp),RoundedCornerShape(12.dp),High){Box(contentAlignment=Alignment.Center){Icon(i,null,tint=Scheme.primary)}};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(t,fontWeight=FontWeight.SemiBold);Text(s,color=Muted,style=MaterialTheme.typography.bodySmall)};Icon(Icons.Default.ArrowForward,null,tint=Muted)}}
+    fun loginDemo() {
+        scope.launch {
+            error = ""
+            try {
+                api.login("demo", "demodemo")
+                ready = true
+            } catch (e: Exception) {
+                error = e.message ?: "Login gagal"
+            }
+        }
+    }
 
-@Composable private fun CashierPage(p:PaddingValues,api:ApiClient){var status by remember{mutableStateOf("buka")};LaunchedEffect(Unit){runCatching{api.get("/api/kasir/current")}.onSuccess{status=it.optString("status","buka")}};LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Kasir & Rekonsiliasi","Sesi Kasir: Aktif")};item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){Row{Text("Sesi Kasir",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Badge(status.uppercase())};Text("Budi Santoso • Kasir 01",color=Muted);Text("Sesi dibuka 08:00 WIB • Shift Pagi");Text("04:32:18",style=MaterialTheme.typography.headlineMedium,fontWeight=FontWeight.Bold);Text("Rp 4.820.000",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,color=Scheme.primary)}}};item{Text("Master Akun & E-Wallet",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};item{listOf("Kas Tunai di Laci" to "Rp 1.450.000","OrderKuota" to "Rp 2.890.000","DANA Merchant" to "Rp 1.150.000","SeaBank Operasional" to "Rp 3.420.000","ShopeePay / QRIS Statis" to "Rp 780.000").forEach{(a,b)->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Row(Modifier.fillMaxWidth().padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.AccountBalanceWallet,null,tint=Scheme.primary);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(a,fontWeight=FontWeight.SemiBold);Text("Saldo realtime",color=Muted,style=MaterialTheme.typography.bodySmall)};Text(b,fontWeight=FontWeight.Bold)}}}}};item{Button(onClick={}){Icon(Icons.Default.Sync,null);Text(" Sinkronkan Saldo")}};item{Button(onClick={}){Text("Tutup Sesi Kasir Sekarang")}}}}
+    LaunchedEffect(Unit) { loginDemo() }
+
+    if (ready) {
+        AppShell(api)
+    } else {
+        Box(
+            modifier = Modifier.fillMaxSize().background(AppColors.background),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Irkop Cell", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                CircularProgressIndicator(color = AppColors.primary)
+                Text(if (error.isBlank()) "Menyiapkan sesi kasir…" else error, color = if (error.isBlank()) Muted else AppColors.error)
+                if (error.isNotBlank()) Button(onClick = ::loginDemo) { Text("Coba Lagi") }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun TransactionSheet(api:ApiClient,close:()->Unit){var mode by remember{mutableStateOf("Transaksi Biasa")};var total by remember{mutableStateOf("187500")};ModalBottomSheet(onDismissRequest=close,containerColor=Mid,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)){LazyColumn(contentPadding=PaddingValues(20.dp,8.dp,20.dp,30.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){item{Header("Transaksi Baru","POS Terminal Online • Kasir Irkop Utama")};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(mode=="Transaksi Biasa",{mode="Transaksi Biasa"},label={Text("Transaksi Biasa")});FilterChip(mode=="Servis HP",{mode="Servis HP"},label={Text("Servis HP")})}};item{Text("Akses Cepat",fontWeight=FontWeight.Bold)};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Quick(Modifier.weight(1f),Icons.Default.QrCodeScanner,"Token PLN"){};Quick(Modifier.weight(1f),Icons.Default.Wifi,"Paket Data"){};Quick(Modifier.weight(1f),Icons.Default.Wallet,"E-Wallet"){};Quick(Modifier.weight(1f),Icons.Default.Build,"Servis"){} }};item{OutlinedTextField(total,{total=it},label={Text("Total Pembayaran (Rp)")},modifier=Modifier.fillMaxWidth())};item{Text("Metode Pembayaran",fontWeight=FontWeight.Bold)};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Tunai","Transfer","Bon","Split Bayar").forEach{FilterChip(false,{},label={Text(it)})}}};item{OutlinedTextField("",{},label={Text("Pelanggan / Nomor WhatsApp")},modifier=Modifier.fillMaxWidth())};item{Button(onClick=close,modifier=Modifier.fillMaxWidth()){Text("Konfirmasi Transaksi")}}}}
+@Composable
+private fun AppShell(api: ApiClient) {
+    var page by remember { mutableStateOf(Page.HOME) }
+    var showTransaction by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
 
-@Composable private fun TransactionPage(p:PaddingValues,api:ApiClient,back:()->Unit){var q by remember{mutableStateOf("")};var ids by remember{mutableStateOf(listOf("TX-20260905-001","TX-20260905-002","TX-20260905-003","TX-20260905-004"))};LaunchedEffect(Unit){runCatching{api.get("/api/transaksi",mapOf("date" to "2026-09-05","limit" to "100"))}.onSuccess{root->val a=root.optJSONArray("items")?:JSONArray();val r=(0 until a.length()).mapNotNull{a.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank)};if(r.isNotEmpty())ids=r}};LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Transaksi","Riwayat transaksi kasir",back)};item{OutlinedTextField(q,{q=it},label={Text("Cari transaksi")},leadingIcon={Icon(Icons.Default.Search,null)},modifier=Modifier.fillMaxWidth())};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Semua","Tunai","Transfer","PPOB").forEach{FilterChip(false,{},label={Text(it)})}}};items(ids.filter{q.isBlank()||it.contains(q,true)}){id->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Row(Modifier.fillMaxWidth().padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.ReceiptLong,null,tint=Scheme.primary);Spacer(Modifier.width(10.dp));Text(id,Modifier.weight(1f),fontWeight=FontWeight.Bold);IconButton({}){Icon(Icons.Default.Print,"Cetak")};IconButton({}){Icon(Icons.Default.Delete,"Hapus",tint=Scheme.error)}}}};item{Text("Manual entry tersedia melalui Laporan. Edit/hapus transaksi memakai reversal atomik backend.",color=Muted,style=MaterialTheme.typography.bodySmall)}}}
+    Scaffold(
+        containerColor = AppColors.background,
+        bottomBar = {
+            NavigationBar(containerColor = SurfaceLow) {
+                NavigationBarItem(page == Page.HOME, { page = Page.HOME }, icon = { Icon(Icons.Default.Home, "Beranda") }, label = { Text("Beranda") })
+                NavigationBarItem(page == Page.KASIR, { page = Page.KASIR }, icon = { Icon(Icons.Default.PointOfSale, "Kasir") }, label = { Text("Kasir") })
+                NavigationBarItem(page == Page.LAPORAN, { page = Page.LAPORAN }, icon = { Icon(Icons.Default.Assessment, "Laporan") }, label = { Text("Laporan") })
+                NavigationBarItem(page == Page.LAINNYA, { page = Page.LAINNYA }, icon = { Icon(Icons.Default.MoreHoriz, "Lainnya") }, label = { Text("Lainnya") })
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showTransaction = true },
+                containerColor = AppColors.primary,
+                contentColor = AppColors.onPrimary
+            ) { Icon(Icons.Default.Add, "Transaksi Baru") }
+        }
+    ) { padding ->
+        when (page) {
+            Page.HOME -> HomePage(padding, { showSearch = true }) { page = it }
+            Page.KASIR -> CashierPage(padding, api)
+            Page.TRANSAKSI -> TransactionPage(padding, api) { page = Page.HOME }
+            Page.LAPORAN -> ReportPage(padding, api)
+            Page.STOK -> StockPage(padding) { page = Page.KATEGORI }
+            Page.KATEGORI -> CategoryPage(padding)
+            Page.SERVICE -> ServicePage(padding)
+            Page.KASBON -> KasbonPage(padding)
+            Page.PELANGGAN -> CustomerPage(padding)
+            Page.PENGELUARAN -> ExpensePage(padding)
+            Page.GAJI -> PayrollPage(padding)
+            Page.LAINNYA -> MorePage(padding) { page = it }
+            Page.PENGATURAN -> SettingsPage(padding)
+        }
+    }
 
-@Composable private fun ReportPage(p:PaddingValues,api:ApiClient,search:()->Unit){var omzet by remember{mutableStateOf("Rp 7.420.000")};LaunchedEffect(Unit){runCatching{api.get("/api/laporan/bulan",mapOf("bulan" to "2026-09"))}.onSuccess{omzet="Rp ${it.optLong("omzet",7420000)}"}};LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Laporan Kasir","Hari Ini",null,search)};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("Total Omzet",omzet,"92,7% tercapai",Modifier.weight(1f));Metric("Total Transaksi","52","Nota",Modifier.weight(1f))}};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("Laba Bersih Est.","Rp 1,15 Jt","Estimasi",Modifier.weight(1f));Metric("Kasbon","Rp 1,84 Jt","Belum lunas",Modifier.weight(1f))}};item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp)){Text("Daftar Transaksi Kasir",fontWeight=FontWeight.Bold);listOf("10:14 • Tunai • Paket Data Telkomsel 50GB • Rp 105.000","09:48 • QRIS Statis • Ganti LCD Samsung A12 • Rp 380.000","09:30 • SeaBank • Top Up DANA • Rp 102.500","09:12 • Tunai • Pulsa Indosat 25k • Rp 26.500","08:30 • Tunai • Kabel Data Type C • Rp 70.000").forEach{Text(it,Modifier.padding(vertical=8.dp))}}}};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){OutlinedButton({}){Icon(Icons.Default.Print,null);Text(" Cetak PDF")};Button({}){Text("Export CSV")}}}}
+    if (showTransaction) TransactionSheet { showTransaction = false }
+    if (showSearch) SearchDialog { showSearch = false }
+}
 
-@Composable private fun StockPage(p:PaddingValues){var add by remember{mutableStateOf(false)};var cat by remember{mutableStateOf(false)};var q by remember{mutableStateOf("")};val products=listOf("Charger Robot Fast Charge 20W • ACC-092 • Stok 18 • Rp 55.000","LCD Samsung A12 Original Incell • SPR-104 • Stok 4 • Rp 280.000","Kartu Perdana Telkomsel 14GB • KRT-011 • Stok 25 • Rp 45.000","Tempered Glass Matte 9D Universal • ACC-033 • Stok 42 • Rp 25.000");LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Daftar Barang & Stok","142 Produk • 3 SKU kritis",null,{add=true})};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("Total Aset Fisik","Rp 28.450.000","142 Produk",Modifier.weight(1f));Metric("Margin Rata-rata","34%","Sehat",Modifier.weight(1f))}};item{OutlinedTextField(q,{q=it},label={Text("Cari produk / barcode")},leadingIcon={Icon(Icons.Default.Search,null)},modifier=Modifier.fillMaxWidth())};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Semua 142","Aksesoris 45","Pulsa & Data 38","Sparepart 29").forEach{FilterChip(false,{},label={Text(it)})}}};item{OutlinedButton({cat=true},Modifier.fillMaxWidth()){Icon(Icons.Default.Category,null);Text(" Kelola Kategori")}};items(products.filter{q.isBlank()||it.contains(q,true)}){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){Row{Text(x.substringBefore(" •"),Modifier.weight(1f),fontWeight=FontWeight.Bold);Icon(Icons.Default.Edit,null);Spacer(Modifier.width(10.dp));Icon(Icons.Default.Delete,null,tint=Scheme.error)};Text(x.substringAfter(" •"),color=Muted);Text("Stok aktif • Margin sehat",color=Success,style=MaterialTheme.typography.labelSmall)}}};item{Button({add=true},Modifier.fillMaxWidth()){Icon(Icons.Default.Add,null);Text(" Tambah Produk Baru")}}};if(add)ProductDialog{add=false};if(cat)CategoryDialog{cat=false}}
-@Composable private fun ProductDialog(close:()->Unit){var name by remember{mutableStateOf("")};var price by remember{mutableStateOf("")};var stock by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Tambah Produk")},text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){OutlinedTextField(name,{name=it},label={Text("Nama Produk")});OutlinedTextField(price,{price=it},label={Text("Harga Jual")});OutlinedTextField(stock,{stock=it},label={Text("Stok")});OutlinedTextField("","",label={Text("SKU / Barcode")})}},confirmButton={Button(close){Text("Simpan Produk")}},dismissButton={TextButton(close){Text("Batal")}})}
+@Composable
+private fun Header(title: String, subtitle: String? = null, back: (() -> Unit)? = null, add: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (back != null) IconButton(onClick = back) { Icon(Icons.Default.ArrowBack, "Kembali") }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            if (subtitle != null) Text(subtitle, color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
+        if (add != null) IconButton(onClick = add) { Icon(Icons.Default.Add, "Tambah") }
+    }
+}
 
-@Composable private fun CategoryPage(p:PaddingValues){LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){item{Header("Kelola Kategori","Kategori, tag warna & urutan")};items(listOf("Aksesoris HP • 45 Produk","Sparepart & LCD • 28 Produk","Kartu Perdana & Kuota • 32 Produk","Voucher Fisik & Gesek • 19 Produk","Jasa Servis Hardware • 14 Layanan","Token Listrik & PPOB • 4 Produk")){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Row(Modifier.fillMaxWidth().padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Category,null,tint=Scheme.primary);Spacer(Modifier.width(12.dp));Text(x,Modifier.weight(1f));Icon(Icons.Default.Edit,null)}}};item{Button({}){Icon(Icons.Default.Add,null);Text(" Tambah Kategori Baru")}}}}
-@Composable private fun CategoryDialog(close:()->Unit){var name by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Kelola Kategori Produk")},text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){Text("Atur kategori, warna tag, ikon dan urutan katalog.",color=Muted);OutlinedTextField(name,{name=it},label={Text("Nama Kategori")});Text("Ikon: Smartphone • Memory • SIM • Kabel • Build",color=Muted)}},confirmButton={Button(close){Text("Selesai & Simpan")}},dismissButton={TextButton(close){Text("Batal")}})}
+@Composable
+private fun Metric(title: String, value: String, note: String, modifier: Modifier = Modifier) {
+    Card(modifier, colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, color = Muted, style = MaterialTheme.typography.labelSmall)
+            Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Text(note, color = Success, style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
 
-@Composable private fun ServicePage(p:PaddingValues){val rows=listOf("SRV-2024-089" to "Xiaomi Redmi Note 11 Pro • Ahmad Zaki • Proses • Rp 380.000","SRV-2024-085" to "iPhone 11 128GB Purple • Maya Indah • Siap Diambil • Rp 450.000","SRV-2024-091" to "Samsung Galaxy A52 • Hendra Gunawan • Baru • Estimasi Rp 650.000");LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Laporan Servis HP","Buku Order Bengkel & Sparepart",null)};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){Metric("Proses","2 unit","Teknisi aktif",Modifier.weight(1f));Metric("Siap Ambil","1 unit","100% diuji",Modifier.weight(1f));Metric("Est. Omzet","Rp 2,85 Jt","18 nota",Modifier.weight(1f))}};item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Semua 18","Diterima","Proses","Selesai","Diambil").forEach{FilterChip(false,{},label={Text(it)})}}};items(rows){(id,desc)->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Row{Text(id,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Badge(if(desc.contains("Siap"))"SIAP AMBIL" else "PROSES")};Text(desc);Text("Teknisi: Doni Prasetyo",color=Muted,style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){OutlinedButton({}){Text("Update Status")};Button({}){Icon(Icons.Default.Call,null);Text(" WA")}}}}};item{Button({}){Icon(Icons.Default.Add,null);Text(" Tiket Servis Baru")}}}}
+@Composable
+private fun StatusPill(text: String, color: Color = Success) {
+    Surface(color = SurfaceHigh, shape = CircleShape) {
+        Text(text, Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+    }
+}
 
-@Composable private fun KasbonPage(p:PaddingValues){var add by remember{mutableStateOf(false)};val rows=listOf("#KB-882 • Pak RT Wawan • Sisa Rp 270.000 • Jatuh Tempo Hari Ini","#KB-879 • Mas Dimas • Total Rp 450.000 • 28 Okt 2024","#KB-875 • Bu Sri Warung • Total Rp 180.000 • 30 Okt 2024","#KB-860 • Rudi Knalpot • LUNAS • 23 Okt 2024");LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Buku Kasbon","Manajemen Piutang Counter & Servis",null,{add=true})};item{Metric("Total Kasbon Belum Lunas","Rp 1.840.000","8 pelanggan • 3 jatuh tempo",Modifier.fillMaxWidth())};item{Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf("Semua 12","Belum Lunas","Jatuh Tempo","Lunas").forEach{FilterChip(false,{},label={Text(it)})}}};items(rows){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(x,fontWeight=FontWeight.Bold);Text("Riwayat transaksi dan pembayaran terhubung",color=Muted,style=MaterialTheme.typography.bodySmall);Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){Button({}){Text("Bayar / Cicil")};OutlinedButton({}){Icon(Icons.Default.Call,null);Text(" Tagih WA")}}}}};item{Button({add=true},Modifier.fillMaxWidth()){Icon(Icons.Default.Add,null);Text(" Kasbon Baru")}}};if(add)DebtDialog{add=false}}
-@Composable private fun DebtDialog(close:()->Unit){var amount by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Kasbon Baru")},text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){OutlinedTextField("Pak RT Wawan",{},label={Text("Pelanggan")});OutlinedTextField(amount,{amount=it},label={Text("Nominal")});OutlinedTextField("24 Okt 2026",{},label={Text("Jatuh Tempo")})}},confirmButton={Button(close){Text("Simpan Kasbon")}},dismissButton={TextButton(close){Text("Batal")}})}
+@Composable
+private fun QuickAction(modifier: Modifier, icon: ImageVector, label: String, onClick: () -> Unit) {
+    Card(modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(icon, null, tint = AppColors.primary)
+            Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
 
-@Composable private fun CustomerPage(p:PaddingValues){var add by remember{mutableStateOf(false)};LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Manajemen Pelanggan","142 Kontak Tersimpan • Outlet Irkop",null,{add=true})};item{Text("Leaderboard Bulan Ini",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)};item{Row(horizontalArrangement=Arrangement.spacedBy(7.dp)){listOf("Dimas W. • Rp 4,85 Jt • 38 trx VIP","Haji Wawan • Rp 3,12 Jt • 19 trx","Siti Wulandari • Rp 2,34 Jt • 24 trx").forEach{x->Card(Modifier.weight(1f),colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Text(x,Modifier.padding(11.dp),fontWeight=FontWeight.SemiBold)}}}};item{OutlinedTextField("",{},label={Text("Cari nama / nomor / alamat")},leadingIcon={Icon(Icons.Default.Search,null)},modifier=Modifier.fillMaxWidth())};items(listOf("Dimas Wahyudi • Bengkel • 0812-4455-6677 • Rp 4.850.000 • 38 Transaksi","Siti Wulandari • 0857-9900-1122 • Rp 2.340.000 • 24 Transaksi","Haji Wawan • RT 04 • 0813-8877-6655 • Rp 3.120.000 • Jatuh Tempo 3 Hari")){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text(x,fontWeight=FontWeight.Bold);Row{OutlinedButton({}){Icon(Icons.Default.Call,null);Text(" Hubungi")};Spacer(Modifier.width(7.dp));Button({}){Text("Detail")}}}}};item{OutlinedButton({}){Text("Kirim Promo WhatsApp Massal")}}};if(add)CustomerDialog{add=false}}
-@Composable private fun CustomerDialog(close:()->Unit){var name by remember{mutableStateOf("")};var phone by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Tambah Pelanggan")},text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){OutlinedTextField(name,{name=it},label={Text("Nama")});OutlinedTextField(phone,{phone=it},label={Text("WhatsApp")});OutlinedTextField("","",label={Text("Alamat / Catatan")})}},confirmButton={Button(close){Text("Simpan")}},dismissButton={TextButton(close){Text("Batal")}})}
+@Composable
+private fun HomePage(padding: PaddingValues, search: () -> Unit, go: (Page) -> Unit) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Irkop Cell", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Sesi Kasir: Aktif", color = Success, fontWeight = FontWeight.Bold)
+                }
+                IconButton(onClick = search) { Icon(Icons.Default.Search, "Cari") }
+                Surface(Modifier.size(40.dp), CircleShape, AppColors.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text("D", fontWeight = FontWeight.Bold) } }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(SurfaceMid), shape = RoundedCornerShape(20.dp), modifier = Modifier.clickable { go(Page.KASIR) }) {
+                Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { Text("Sesi Kasir Aktif", fontWeight = FontWeight.Bold); Text("Siti Aminah • Shift Pagi • 08:00 WIB", color = Muted, style = MaterialTheme.typography.bodySmall) }
+                        StatusPill("AKTIF")
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Metric("Saldo Awal", "Rp 1.500.000", "Opening", Modifier.weight(1f))
+                        Metric("Saldo Berjalan", "Rp 5.750.000", "Real-time", Modifier.weight(1f))
+                    }
+                    Text("Kelola sesi & rekonsiliasi", color = AppColors.primary, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Metric("Saldo Kas Laci", "Rp 1.450.000", "Real-time", Modifier.weight(1f))
+                Metric("Omzet Hari Ini", "Rp 7.420.000", "82% target", Modifier.weight(1f))
+                Metric("Transaksi", "52", "Nota", Modifier.weight(1f))
+            }
+        }
+        item { Text("Perlu Perhatian Segera", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AttentionRow("3 Servis Siap Diambil", "Kirim notifikasi WA", Icons.Default.Build) { go(Page.SERVICE) }
+                AttentionRow("Kasbon Jatuh Tempo Hari Ini", "2 pelanggan • Rp 320.000", Icons.Default.ReceiptLong) { go(Page.KASBON) }
+                AttentionRow("Selisih Belum Ditoleransi", "Shift malam • -Rp 15.000", Icons.Default.AccountBalanceWallet) { go(Page.KASIR) }
+            }
+        }
+        item { Text("Menu Kasir Utama", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickAction(Modifier.weight(1f), Icons.Default.Inventory2, "Stok") { go(Page.STOK) }
+                QuickAction(Modifier.weight(1f), Icons.Default.ReceiptLong, "Kasbon") { go(Page.KASBON) }
+                QuickAction(Modifier.weight(1f), Icons.Default.People, "Pelanggan") { go(Page.PELANGGAN) }
+                QuickAction(Modifier.weight(1f), Icons.Default.Wallet, "Pengeluaran") { go(Page.PENGELUARAN) }
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                QuickAction(Modifier.weight(1f), Icons.Default.Build, "Servis") { go(Page.SERVICE) }
+                QuickAction(Modifier.weight(1f), Icons.Default.Group, "Gaji") { go(Page.GAJI) }
+                QuickAction(Modifier.weight(1f), Icons.Default.Assessment, "Laporan") { go(Page.LAPORAN) }
+                QuickAction(Modifier.weight(1f), Icons.Default.Settings, "Setting") { go(Page.PENGATURAN) }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(SurfaceMid), shape = RoundedCornerShape(20.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Aktivitas Terakhir", fontWeight = FontWeight.Bold)
+                    listOf("Paket Data Telkomsel 50GB • Rp 105.000", "Ganti LCD Samsung A12 • Rp 380.000", "Top Up DANA Saldo 100k • Rp 102.500", "Pulsa Indosat Reguler 25k • Rp 26.500").forEach { Text(it, Modifier.padding(top = 10.dp)) }
+                }
+            }
+        }
+    }
+}
 
-@Composable private fun ExpensePage(p:PaddingValues){var add by remember{mutableStateOf(false)};LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Catatan Pengeluaran","Arus Kas Keluar Irkop Cell",null,{add=true})};item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Metric("Total Keluar","Rp 4.250.000","Bulan Ini",Modifier.weight(1f));Metric("Rata-rata","Rp 177.000","per hari",Modifier.weight(1f))}};item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp)){Text("Distribusi Pengeluaran",fontWeight=FontWeight.Bold);Text("Stok & Kulakan 60% • Operasional 25% • Kasir 15%",color=Muted,modifier=Modifier.padding(top=7.dp))}}};items(listOf("Kulakan Tempered Glass & Kabel Data Robot • Kas Laci • - Rp 250.000","Makan Siang & Kopi Kasir • Kas Laci • - Rp 50.000","Beli Lakban, Nota & Kertas Thermal • Kas Laci • - Rp 80.000","Bayar Tagihan Listrik PLN • SeaBank • - Rp 450.000","Iuran Wifi Counter • SeaBank • - Rp 200.000")){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Row(Modifier.fillMaxWidth().padding(15.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Wallet,null,tint=Scheme.error);Spacer(Modifier.width(10.dp));Text(x,Modifier.weight(1f));Icon(Icons.Default.Edit,null);Spacer(Modifier.width(9.dp));Icon(Icons.Default.Delete,null,tint=Scheme.error)}}};item{Button({add=true},Modifier.fillMaxWidth()){Icon(Icons.Default.Add,null);Text(" Catat Pengeluaran Baru")}}};if(add)ExpenseDialog{add=false}}
-@Composable private fun ExpenseDialog(close:()->Unit){var desc by remember{mutableStateOf("")};var amount by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Catat Pengeluaran Baru")},text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){OutlinedTextField(desc,{desc=it},label={Text("Nama / Deskripsi Pengeluaran")});OutlinedTextField(amount,{amount=it},label={Text("Nominal")});OutlinedTextField("Operasional",{},label={Text("Kategori")});OutlinedTextField("Tunai • Kas Laci",{},label={Text("Metode & Akun Sumber")})}},confirmButton={Button(close){Text("Simpan Pengeluaran")}},dismissButton={TextButton(close){Text("Batal")}})}
+@Composable
+private fun AttentionRow(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
+    Card(Modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = AppColors.primary, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.SemiBold); Text(subtitle, color = Muted, style = MaterialTheme.typography.bodySmall) }
+            Icon(Icons.Default.ArrowForward, null, tint = Muted)
+        }
+    }
+}
 
-@Composable private fun PayrollPage(p:PaddingValues){LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){item{Header("Gaji Karyawan & Shift","Khusus Pemilik Toko")};item{Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Akses Dibatasi • Root Admin",color=Scheme.error,fontWeight=FontWeight.Bold);Text("Total Liabilitas Payroll",color=Muted);Text("Rp 5.800.000",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Total Staff: 3 Orang")}}};items(listOf("Siti Aminah • Kasir Shift 1 • 22 Hari • Pokok Rp 1.800.000 • Makan Rp 330.000 • Total Rp 2.480.000","Doni Prasetyo • Teknisi Hardware • Komisi 40% • Omzet Jasa Rp 4.200.000 • Komisi Rp 1.680.000","Budi Santoso • Kasir Shift 2 • 18 Hari • Prorata Rp 1.472.000 • Makan Rp 180.000 • Bersih Rp 1.640.000")){x->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text(x,fontWeight=FontWeight.SemiBold);Text("Absensi • rincian servis • slip gaji • log sesi",color=Muted,style=MaterialTheme.typography.bodySmall);OutlinedButton({}){Text("Lihat Rincian")}}}};item{Button({}){Text("Atur Skema & Rate")}}}}
+@Composable
+private fun CashierPage(padding: PaddingValues, api: ApiClient) {
+    var status by remember { mutableStateOf("AKTIF") }
+    LaunchedEffect(Unit) { runCatching { api.get("/api/kasir/current") }.onSuccess { status = it.optString("status", "AKTIF").uppercase() } }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Header("Kasir & Rekonsiliasi", "Sesi kasir aktif") }
+        item { Card(colors = CardDefaults.cardColors(SurfaceMid), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Row { Text("Sesi Kasir", Modifier.weight(1f), fontWeight = FontWeight.Bold); StatusPill(status) }; Text("Kasir 01 • Shift Pagi", color = Muted); Text("Saldo berjalan", color = Muted); Text("Rp 4.820.000", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) } } }
+        item { Text("Master Akun & E-Wallet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        items(listOf("Kas Tunai di Laci" to "Rp 1.450.000", "OrderKuota" to "Rp 2.890.000", "DANA Merchant" to "Rp 1.150.000", "SeaBank Operasional" to "Rp 3.420.000", "ShopeePay / QRIS" to "Rp 780.000")) { (name, balance) -> Card(colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AccountBalanceWallet, null, tint = AppColors.primary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(name, fontWeight = FontWeight.SemiBold); Text("Saldo realtime", color = Muted, style = MaterialTheme.typography.bodySmall) }; Text(balance, fontWeight = FontWeight.Bold) } } }
+        item { Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Spacer(Modifier.width(8.dp)); Text("Sinkronkan Saldo") } }
+        item { OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Rekonsiliasi & Tutup Sesi") } }
+    }
+}
 
-@Composable private fun MorePage(p:PaddingValues,go:(Page)->Unit){val modules=listOf(Triple("Daftar Barang & Stok",Icons.Default.Inventory2,Page.STOK),Triple("Laporan Servis HP",Icons.Default.Build,Page.SERVICE),Triple("Buku Kasbon",Icons.Default.ReceiptLong,Page.KASBON),Triple("Data Pelanggan",Icons.Default.People,Page.PELANGGAN),Triple("Catatan Pengeluaran",Icons.Default.Wallet,Page.PENGELUARAN),Triple("Gaji Karyawan",Icons.Default.Group,Page.GAJI),Triple("Pengaturan",Icons.Default.Settings,Page.PENGATURAN));LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){item{Header("Lainnya","Sesi Kasir: Aktif")};item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp)){Text("Irkop Cell - Counter Pusat",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold);Text("ID Outlet: IRP-SBY-001 • POS Cloud",color=Muted)}}};items(modules){(t,i,target)->Card(Modifier.clickable{go(target)},colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Icon(i,null,tint=Scheme.primary);Spacer(Modifier.width(13.dp));Column(Modifier.weight(1f)){Text(t,fontWeight=FontWeight.SemiBold);Text("Buka modul lengkap",color=Muted,style=MaterialTheme.typography.bodySmall)};Icon(Icons.Default.ChevronRight,null,tint=Muted)}}};item{Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Text("Akselerasi Transaksi",fontWeight=FontWeight.Bold);Text("Cetak nota & barcode instan • Pemindai kamera IMEI / SN",color=Muted);Text("OLED Dark • NotifHook • Manajemen User & Hak Akses",color=Muted)}}}}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransactionSheet(close: () -> Unit) {
+    var type by remember { mutableStateOf("Transaksi Biasa") }
+    var amount by remember { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = close, containerColor = SurfaceMid) {
+        LazyColumn(contentPadding = PaddingValues(20.dp, 8.dp, 20.dp, 30.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+            item { Header("Transaksi Baru", "POS Terminal Online") }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(type == "Transaksi Biasa", { type = "Transaksi Biasa" }, label = { Text("Transaksi Biasa") }); FilterChip(type == "Servis HP", { type = "Servis HP" }, label = { Text("Servis HP") }) } }
+            item { Text("Akses Cepat", fontWeight = FontWeight.Bold) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { QuickAction(Modifier.weight(1f), Icons.Default.QrCodeScanner, "Token PLN") {}; QuickAction(Modifier.weight(1f), Icons.Default.Wifi, "Paket Data") {}; QuickAction(Modifier.weight(1f), Icons.Default.Wallet, "E-Wallet") {}; QuickAction(Modifier.weight(1f), Icons.Default.Build, "Servis") {} } }
+            item { OutlinedTextField(amount, { amount = it }, label = { Text("Total Pembayaran (Rp)") }, modifier = Modifier.fillMaxWidth()) }
+            item { Text("Metode Pembayaran", fontWeight = FontWeight.Bold) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Tunai", "Transfer", "Bon", "Split Bayar").forEach { FilterChip(false, {}, label = { Text(it) }) } } }
+            item { OutlinedTextField("", {}, label = { Text("Pelanggan / Nomor WhatsApp") }, modifier = Modifier.fillMaxWidth()) }
+            item { Button(onClick = close, modifier = Modifier.fillMaxWidth()) { Text("Konfirmasi Transaksi") } }
+        }
+    }
+}
 
-@Composable private fun SettingsPage(p:PaddingValues,api:ApiClient){LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(bottom=110.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){item{Header("Pengaturan","Operasional, hak akses & sistem")};items(listOf("Tampilan & Mode Gelap" to "OLED Efisien • Mode Gelap","NotifHook" to "Terkoneksi • HTTP 200 OK","Manajemen User & Hak Akses" to "Admin / Owner • Kasir • Teknisi","Informasi Outlet & Printer" to "VSC MP-58C • Bluetooth Thermal 58mm","Master Akun Uang" to "Kas, DANA, SeaBank, QRIS","Console Log / System Log" to "Live audit transaksi, gateway & printer")){(a,b)->Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(18.dp)){Row(Modifier.fillMaxWidth().padding(16.dp),verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Settings,null,tint=Scheme.primary);Spacer(Modifier.width(12.dp));Column(Modifier.weight(1f)){Text(a,fontWeight=FontWeight.SemiBold);Text(b,color=Muted,style=MaterialTheme.typography.bodySmall)};Icon(Icons.Default.ChevronRight,null,tint=Muted)}}};item{Text("Permission dibaca dari JWT/backend. Role Karyawan tidak mendapat akses Gaji Karyawan atau Pengaturan.",color=Muted,style=MaterialTheme.typography.bodySmall)}}
+@Composable
+private fun TransactionPage(padding: PaddingValues, api: ApiClient, back: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var ids by remember { mutableStateOf(listOf("TX-20260905-001", "TX-20260905-002", "TX-20260905-003")) }
+    LaunchedEffect(Unit) { runCatching { api.get("/api/transaksi", mapOf("date" to "2026-09-05", "limit" to "100")) }.onSuccess { root -> val a = root.optJSONArray("items") ?: JSONArray(); val loaded = (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("id")?.takeIf(String::isNotBlank) }; if (loaded.isNotEmpty()) ids = loaded } }
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Header("Transaksi", "Riwayat transaksi kasir", back) }
+        item { OutlinedTextField(query, { query = it }, label = { Text("Cari transaksi") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth()) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { listOf("Semua", "Tunai", "Transfer", "PPOB").forEach { FilterChip(false, {}, label = { Text(it) }) } } }
+        items(ids.filter { query.isBlank() || it.contains(query, true) }) { id -> Card(colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.ReceiptLong, null, tint = AppColors.primary); Spacer(Modifier.width(10.dp)); Text(id, Modifier.weight(1f), fontWeight = FontWeight.Bold); IconButton(onClick = {}) { Icon(Icons.Default.Print, "Cetak") }; IconButton(onClick = {}) { Icon(Icons.Default.Delete, "Hapus", tint = AppColors.error) } } } }
+    }
+}
 
-@Composable private fun SearchDialog(close:()->Unit){var q by remember{mutableStateOf("")};AlertDialog(onDismissRequest=close,title={Text("Cari di Irkop Cell")},text={OutlinedTextField(q,{q=it},label={Text("Produk, transaksi, pelanggan, kasbon…")})},confirmButton={Button(close){Text("Cari")}})}
+@Composable
+private fun ReportPage(padding: PaddingValues, api: ApiClient) {
+    var omzet by remember { mutableStateOf("Rp 7.420.000") }
+    LaunchedEffect(Unit) { runCatching { api.get("/api/laporan/bulan", mapOf("bulan" to "2026-09")) }.onSuccess { omzet = "Rp ${it.optLong("omzet", 7420000)}" } }
+    SimplePage(padding, "Laporan Kasir", "Hari Ini", listOf("Total Omzet" to omzet, "Total Transaksi" to "52", "Laba Bersih Est." to "Rp 1,15 Jt", "Kasbon" to "Rp 1,84 Jt"), listOf("Cetak PDF", "Export CSV"))
+}
+
+@Composable
+private fun StockPage(padding: PaddingValues, openCategories: () -> Unit) {
+    SimplePage(padding, "Daftar Barang & Stok", "142 Produk • 3 SKU kritis", listOf("Total Aset Fisik" to "Rp 28.450.000", "Margin Rata-rata" to "34%"), listOf("Tambah Produk", "Kelola Kategori"))
+}
+
+@Composable
+private fun CategoryPage(padding: PaddingValues) {
+    SimpleListPage(padding, "Kelola Kategori", listOf("Aksesoris HP • 45 Produk", "Sparepart & LCD • 28 Produk", "Kartu Perdana & Kuota • 32 Produk", "Voucher & PPOB • 19 Produk", "Jasa Servis Hardware • 14 Layanan"))
+}
+
+@Composable
+private fun ServicePage(padding: PaddingValues) {
+    SimpleListPage(padding, "Laporan Servis HP", listOf("SRV-2024-089 • Redmi Note 11 • Proses • Rp 380.000", "SRV-2024-085 • iPhone 11 • Siap Diambil • Rp 450.000", "SRV-2024-091 • Samsung A52 • Baru • Est. Rp 650.000"))
+}
+
+@Composable
+private fun KasbonPage(padding: PaddingValues) {
+    SimpleListPage(padding, "Buku Kasbon", listOf("KB-882 • Pak RT Wawan • Sisa Rp 270.000 • Jatuh Tempo Hari Ini", "KB-879 • Mas Dimas • Rp 450.000 • Belum Lunas", "KB-875 • Bu Sri • Rp 180.000 • Belum Lunas", "KB-860 • Rudi • LUNAS"))
+}
+
+@Composable
+private fun CustomerPage(padding: PaddingValues) {
+    SimpleListPage(padding, "Manajemen Pelanggan", listOf("Dimas Wahyudi • 0812-4455-6677 • Rp 4.850.000 • 38 Transaksi", "Siti Wulandari • 0857-9900-1122 • Rp 2.340.000 • 24 Transaksi", "Haji Wawan • 0813-8877-6655 • Jatuh Tempo 3 Hari"))
+}
+
+@Composable
+private fun ExpensePage(padding: PaddingValues) {
+    SimpleListPage(padding, "Catatan Pengeluaran", listOf("Kulakan Tempered Glass & Kabel Data • Rp 250.000", "Makan Siang Kasir • Rp 50.000", "Kertas Thermal & Nota • Rp 80.000", "Tagihan Listrik PLN • Rp 450.000", "Wifi Counter • Rp 200.000"))
+}
+
+@Composable
+private fun PayrollPage(padding: PaddingValues) {
+    SimpleListPage(padding, "Gaji Karyawan & Shift", listOf("Siti Aminah • Kasir • Total Rp 2.480.000", "Doni Prasetyo • Teknisi • Komisi Rp 1.680.000", "Budi Santoso • Kasir • Bersih Rp 1.640.000"))
+}
+
+@Composable
+private fun MorePage(padding: PaddingValues, go: (Page) -> Unit) {
+    val modules = listOf("Daftar Barang & Stok" to Page.STOK, "Kelola Kategori" to Page.KATEGORI, "Laporan Servis HP" to Page.SERVICE, "Buku Kasbon" to Page.KASBON, "Data Pelanggan" to Page.PELANGGAN, "Catatan Pengeluaran" to Page.PENGELUARAN, "Gaji Karyawan" to Page.GAJI, "Pengaturan" to Page.PENGATURAN)
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Header("Lainnya", "Semua modul Irkop Cell") }
+        items(modules) { (name, target) -> Card(Modifier.clickable { go(target) }, colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.ChevronRight, null, tint = AppColors.primary); Spacer(Modifier.width(12.dp)); Text(name, Modifier.weight(1f), fontWeight = FontWeight.SemiBold); Icon(Icons.Default.ChevronRight, null, tint = Muted) } } }
+    }
+}
+
+@Composable
+private fun SettingsPage(padding: PaddingValues) {
+    SimpleListPage(padding, "Pengaturan", listOf("Tampilan & Mode Gelap • OLED Dark", "NotifHook • Gateway", "Manajemen User & Hak Akses", "Informasi Outlet & Printer", "Master Akun Uang", "Console Log / System Log"))
+}
+
+@Composable
+private fun SimplePage(padding: PaddingValues, title: String, subtitle: String, metrics: List<Pair<String, String>>, actions: List<String>) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Header(title, subtitle) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { metrics.take(2).forEach { (a, b) -> Metric(a, b, "Real-time", Modifier.weight(1f)) } } }
+        if (metrics.size > 2) item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { metrics.drop(2).take(2).forEach { (a, b) -> Metric(a, b, "Ringkasan", Modifier.weight(1f)) } } }
+        item { OutlinedTextField("", {}, label = { Text("Cari / filter data") }, modifier = Modifier.fillMaxWidth()) }
+        items(actions) { action -> Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text(action) } }
+    }
+}
+
+@Composable
+private fun SimpleListPage(padding: PaddingValues, title: String, rows: List<String>) {
+    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Header(title, "Irkop Cell") }
+        item { OutlinedTextField("", {}, label = { Text("Cari") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth()) }
+        items(rows) { row -> Card(colors = CardDefaults.cardColors(SurfaceLow), shape = RoundedCornerShape(16.dp)) { Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) { Text(row, fontWeight = FontWeight.SemiBold); Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedButton(onClick = {}) { Text("Detail") }; Button(onClick = {}) { Text("Kelola") } } } } }
+        item { Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tambah Baru") } }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchDialog(close: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = close, title = { Text("Cari di Irkop Cell") }, text = { OutlinedTextField(query, { query = it }, label = { Text("Produk, transaksi, pelanggan, kasbon…") }) }, confirmButton = { Button(onClick = close) { Text("Cari") } }, dismissButton = { TextButton(onClick = close) { Text("Batal") } })
+}

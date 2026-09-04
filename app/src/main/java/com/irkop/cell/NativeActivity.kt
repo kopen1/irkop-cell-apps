@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,10 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -31,138 +28,180 @@ import org.json.JSONObject
 import java.text.NumberFormat
 import java.util.Locale
 
-private val AppColors = darkColorScheme(
+private val Scheme = darkColorScheme(
     primary = Color(0xFF70D8C8), onPrimary = Color(0xFF06332E),
-    primaryContainer = Color(0xFF32A192), onPrimaryContainer = Color(0xFFE5FFF9),
-    secondary = Color(0xFF4EDEA3), onSecondary = Color(0xFF062B1C),
-    tertiary = Color(0xFFADC6FF), background = Color(0xFF202020), onBackground = Color(0xFFF4F7F5),
-    surface = Color(0xFF242424), onSurface = Color(0xFFF4F7F5),
-    surfaceVariant = Color(0xFF353535), onSurfaceVariant = Color(0xFFD7E0DC),
-    outline = Color(0xFFAAB7B3), outlineVariant = Color(0xFF596460),
-    error = Color(0xFFFFB4AB), onError = Color(0xFF3B0805)
+    primaryContainer = Color(0xFF32A192), onPrimaryContainer = Color.White,
+    secondary = Color(0xFF4EDEA3), background = Color(0xFF202020),
+    surface = Color(0xFF292929), surfaceVariant = Color(0xFF383838),
+    onSurface = Color(0xFFF4F7F5), onSurfaceVariant = Color(0xFFD7E0DC),
+    outline = Color(0xFFAAB7B3), error = Color(0xFFFFB4AB)
 )
-private val Card1 = Color(0xFF2B2B2B)
-private val Card2 = Color(0xFF323232)
-private val Card3 = Color(0xFF3A3A3A)
-private val Muted = Color(0xFFD7E0DC)
+private val CardColor = Color(0xFF303030)
 private val Good = Color(0xFF4EDEA3)
+private val Muted = Color(0xFFD7E0DC)
 private val Money = NumberFormat.getNumberInstance(Locale("id", "ID"))
 private enum class Page { HOME, KASIR, TRANSAKSI, LAPORAN, STOK, KATEGORI, SERVICE, KASBON, PELANGGAN, PENGELUARAN, GAJI, LAINNYA, PENGATURAN }
 
-private fun rupiah(v: Any?): String {
-    val n = when (v) {
-        is Number -> v.toLong()
-        else -> v?.toString()?.replace(",", "")?.toDoubleOrNull()?.toLong() ?: 0L
-    }
-    return "Rp ${Money.format(n)}"
-}
-private fun JSONArray?.safeList(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
-private fun JSONObject.firstArray(vararg names: String): JSONArray? = names.firstNotNullOfOrNull { optJSONArray(it) }
-private fun JSONObject.firstString(vararg names: String): String = names.firstNotNullOfOrNull { n -> optString(n).takeIf { it.isNotBlank() } } ?: "-"
-private fun JSONObject.firstNumber(vararg names: String): String = names.firstNotNullOfOrNull { n -> if (has(n) && !isNull(n)) optString(n) else null } ?: "0"
+private fun JSONObject.s(vararg keys: String): String = keys.firstNotNullOfOrNull { k -> optString(k).takeIf { it.isNotBlank() } } ?: "-"
+private fun JSONObject.n(vararg keys: String): Long = keys.firstNotNullOfOrNull { k -> optString(k).replace(",", "").toDoubleOrNull()?.toLong() } ?: 0L
+private fun JSONObject.a(vararg keys: String): List<JSONObject> = keys.firstNotNullOfOrNull { optJSONArray(it) }?.let { arr -> (0 until arr.length()).mapNotNull(arr::optJSONObject) } ?: emptyList()
+private fun rp(n: Long) = "Rp ${Money.format(n)}"
 
 class NativeActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { MaterialTheme(colorScheme = AppColors) { AutoLogin() } } }
+    override fun onCreate(state: Bundle?) { super.onCreate(state); setContent { MaterialTheme(colorScheme = Scheme) { LoginGate() } } }
 }
 
-@Composable private fun AutoLogin() {
+@Composable private fun LoginGate() {
     val context = LocalContext.current
     val api = remember(context) { ApiClient(context) }
+    val scope = rememberCoroutineScope()
     var ready by remember { mutableStateOf(api.hasToken()) }
     var error by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-    fun doLogin() = scope.launch { error = ""; try { if (!api.hasToken()) api.login("demo", "demodemo") else runCatching { api.me() }.getOrElse { api.login("demo", "demodemo") }; ready = true } catch (e: Exception) { ready = false; error = e.message ?: "Login gagal" } }
-    LaunchedEffect(Unit) { doLogin() }
-    if (ready) AppShell(api) else Box(Modifier.fillMaxSize().background(AppColors.background), Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(24.dp)) {
+    fun login() = scope.launch {
+        error = ""
+        runCatching { if (api.hasToken()) runCatching { api.me() }.getOrElse { api.login("demo", "demodemo") } else api.login("demo", "demodemo") }
+            .onSuccess { ready = true }.onFailure { ready = false; error = it.message ?: "Login gagal" }
+    }
+    LaunchedEffect(Unit) { login() }
+    if (ready) App(api) else Box(Modifier.fillMaxSize().background(Scheme.background), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Irkop Cell", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-            CircularProgressIndicator(color = AppColors.primary)
-            Text(if (error.isBlank()) "Menyiapkan sesi kasir…" else error, color = if (error.isBlank()) Muted else AppColors.error)
-            if (error.isNotBlank()) Button(onClick = { doLogin() }) { Text("Coba Lagi") }
+            CircularProgressIndicator()
+            Text(if (error.isBlank()) "Menyiapkan sesi kasir…" else error, color = if (error.isBlank()) Muted else Scheme.error)
+            if (error.isNotBlank()) Button(onClick = { login() }) { Text("Coba Lagi") }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun AppShell(api: ApiClient) {
+@Composable private fun App(api: ApiClient) {
     var page by remember { mutableStateOf(Page.HOME) }
     var stack by remember { mutableStateOf(emptyList<Page>()) }
-    var transactionSheet by remember { mutableStateOf(false) }
-    var searchDialog by remember { mutableStateOf(false) }
-    val user = remember { api.cachedUser() }
-    val role = user?.optString("role", "")?.uppercase().orEmpty()
-    fun can(p: Page): Boolean = if (p == Page.GAJI || p == Page.PENGATURAN) role !in setOf("KARYAWAN", "CASHIER", "KASIR") else true
-    fun open(target: Page) { if (can(target) && target != page) { stack = stack + page; page = target } }
-    fun root(target: Page) { if (can(target)) { page = target; stack = emptyList() } }
+    var sheet by remember { mutableStateOf(false) }
+    val role = remember { api.cachedUser()?.optString("role").orEmpty().uppercase() }
+    fun allowed(p: Page) = p != Page.GAJI || role !in setOf("KARYAWAN", "KASIR", "CASHIER")
+    fun open(p: Page) { if (allowed(p) && p != page) { stack = stack + page; page = p } }
+    fun root(p: Page) { if (allowed(p)) { page = p; stack = emptyList() } }
     fun back() { if (stack.isNotEmpty()) { page = stack.last(); stack = stack.dropLast(1) } else if (page != Page.HOME) page = Page.HOME }
     BackHandler { back() }
-    Scaffold(containerColor = AppColors.background,
-        bottomBar = { NavigationBar(containerColor = Color(0xFF292929)) { NavItem(page == Page.HOME, { root(Page.HOME) }, Icons.Default.Home, "Beranda"); NavItem(page == Page.KASIR, { root(Page.KASIR) }, Icons.Default.PointOfSale, "Kasir"); NavItem(page == Page.LAPORAN, { root(Page.LAPORAN) }, Icons.Default.Assessment, "Laporan"); NavItem(page == Page.LAINNYA, { root(Page.LAINNYA) }, Icons.Default.MoreHoriz, "Lainnya") } },
-        floatingActionButton = { FloatingActionButton(onClick = { transactionSheet = true }, containerColor = AppColors.primary, contentColor = AppColors.onPrimary) { Icon(Icons.Default.Add, "Transaksi Baru") } }
-    ) { pad ->
+    Scaffold(
+        containerColor = Scheme.background,
+        bottomBar = { NavigationBar(containerColor = Color(0xFF292929)) {
+            Nav(page == Page.HOME, { root(Page.HOME) }, Icons.Default.Home, "Beranda")
+            Nav(page == Page.KASIR, { root(Page.KASIR) }, Icons.Default.PointOfSale, "Kasir")
+            Nav(page == Page.LAPORAN, { root(Page.LAPORAN) }, Icons.Default.Assessment, "Laporan")
+            Nav(page == Page.LAINNYA, { root(Page.LAINNYA) }, Icons.Default.MoreHoriz, "Lainnya")
+        }},
+        floatingActionButton = { FloatingActionButton(onClick = { sheet = true }, containerColor = Scheme.primary, contentColor = Scheme.onPrimary) { Icon(Icons.Default.Add, "Transaksi Baru") } }
+    ) { p ->
         when (page) {
-            Page.HOME -> HomePage(pad, ::open, { searchDialog = true }, role)
-            Page.KASIR -> CashierPage(pad, api, ::back)
-            Page.TRANSAKSI -> TransactionPage(pad, api, ::back)
-            Page.LAPORAN -> ReportPage(pad, api, ::back)
-            Page.STOK -> UnsupportedPage(pad, "Daftar Barang & Stok", "Kontrak backend yang diberikan belum memiliki endpoint katalog produk/stok.", ::back)
-            Page.KATEGORI -> UnsupportedPage(pad, "Kelola Kategori", "Endpoint kategori belum tercantum dalam kontrak API resmi.", ::back)
-            Page.SERVICE -> UnsupportedPage(pad, "Laporan Servis HP", "Endpoint servis belum tercantum dalam kontrak API resmi.", ::back)
-            Page.KASBON -> KasbonPage(pad, api, ::back)
-            Page.PELANGGAN -> UnsupportedPage(pad, "Data Pelanggan", "Endpoint pelanggan belum tercantum dalam kontrak API resmi.", ::back)
-            Page.PENGELUARAN -> UnsupportedPage(pad, "Catatan Pengeluaran", "Endpoint pengeluaran belum tercantum dalam kontrak API resmi.", ::back)
-            Page.GAJI -> PayrollPage(pad, api, ::back)
-            Page.LAINNYA -> MorePage(pad, ::open, ::back, can(Page.GAJI), can(Page.PENGATURAN))
-            Page.PENGATURAN -> SettingsPage(pad, api, ::back)
+            Page.HOME -> Home(p, ::open, role)
+            Page.KASIR -> Cashier(p, api, ::back)
+            Page.TRANSAKSI -> Transactions(p, api, ::back)
+            Page.LAPORAN -> Reports(p, api, ::back)
+            Page.KASBON -> Kasbon(p, api, ::back)
+            Page.GAJI -> Payroll(p, api, ::back)
+            Page.LAINNYA -> More(p, ::open, ::back, allowed(Page.GAJI))
+            Page.PENGATURAN -> Unsupported(p, "Pengaturan", "Endpoint pengaturan belum ada di kontrak API resmi.", ::back)
+            Page.STOK -> Unsupported(p, "Stok", "Endpoint produk/stok belum ada di kontrak API resmi.", ::back)
+            Page.KATEGORI -> Unsupported(p, "Kategori", "Endpoint kategori belum ada di kontrak API resmi.", ::back)
+            Page.SERVICE -> Unsupported(p, "Service HP", "Endpoint service belum ada di kontrak API resmi.", ::back)
+            Page.PELANGGAN -> Unsupported(p, "Pelanggan", "Endpoint pelanggan belum ada di kontrak API resmi.", ::back)
+            Page.PENGELUARAN -> Unsupported(p, "Pengeluaran", "Endpoint pengeluaran belum ada di kontrak API resmi.", ::back)
         }
     }
-    if (transactionSheet) TransactionSheet(api) { transactionSheet = false }
-    if (searchDialog) SearchDialog(::open) { searchDialog = false }
+    if (sheet) TransactionSheet(api) { sheet = false }
 }
 
-@Composable private fun NavItem(selected: Boolean, onClick: () -> Unit, icon: ImageVector, label: String) { Column(Modifier.width(88.dp).clickable(onClick = onClick).padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) { Surface(color = if (selected) Color(0xFF454545) else Color.Transparent, shape = RoundedCornerShape(22.dp)) { Icon(icon, label, tint = if (selected) AppColors.primary else Muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp)) }; Text(label, color = if (selected) AppColors.primary else Muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) } }
-@Composable private fun Header(title: String, subtitle: String? = null, back: (() -> Unit)? = null, add: (() -> Unit)? = null) { Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { if (back != null) IconButton(onClick = back) { Icon(Icons.Default.ArrowBack, "Kembali") }; Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); if (subtitle != null) Text(subtitle, color = Muted, style = MaterialTheme.typography.bodyMedium) }; if (add != null) IconButton(onClick = add) { Icon(Icons.Default.Add, "Tambah") } } }
-@Composable private fun Metric(title: String, value: String, note: String = "", modifier: Modifier = Modifier) { Card(modifier, colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, color = Muted, style = MaterialTheme.typography.labelSmall); Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); if (note.isNotBlank()) Text(note, color = Good, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) } } }
-@Composable private fun Status(text: String, good: Boolean = true) { Surface(color = Card3, shape = CircleShape) { Text(text, Modifier.padding(horizontal = 11.dp, vertical = 7.dp), color = if (good) Good else AppColors.error, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall) } }
-@Composable private fun Quick(modifier: Modifier, icon: ImageVector, label: String, onClick: () -> Unit) { Card(modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Column(Modifier.fillMaxWidth().padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) { Icon(icon, null, tint = AppColors.primary, modifier = Modifier.size(25.dp)); Text(label, color = AppColors.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) } } }
+@Composable private fun Nav(selected: Boolean, click: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+    NavigationBarItem(selected, click, icon = { Icon(icon, label) }, label = { Text(label) })
+}
 
-@Composable private fun HomePage(pad: PaddingValues, open: (Page) -> Unit, search: () -> Unit, role: String) { LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Irkop Cell", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Sesi Kasir: Aktif", color = Good, fontWeight = FontWeight.Bold) }; IconButton(onClick = search) { Icon(Icons.Default.Search, "Cari") }; Surface(Modifier.size(42.dp), CircleShape, AppColors.primaryContainer) { Box(contentAlignment = Alignment.Center) { Text(role.take(1).ifBlank { "K" }, color = AppColors.onPrimaryContainer, fontWeight = FontWeight.Bold) } } } }; item { Card(Modifier.clickable { open(Page.KASIR) }, colors = CardDefaults.cardColors(Card2), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Sesi Kasir", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Kelola opening, saldo & rekonsiliasi", color = Muted) }; Status("BUKA") }; Text("Buka detail sesi →", color = AppColors.primary, fontWeight = FontWeight.Bold) } } }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Metric("Saldo Kas Laci", "—", "Backend", Modifier.weight(1f)); Metric("Omzet Hari Ini", "—", "Laporan", Modifier.weight(1f)); Metric("Transaksi", "—", "Hari ini", Modifier.weight(1f)) } }; item { Text("Menu Kasir Utama", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Quick(Modifier.weight(1f), Icons.Default.Inventory2, "Stok") { open(Page.STOK) }; Quick(Modifier.weight(1f), Icons.Default.ReceiptLong, "Kasbon") { open(Page.KASBON) }; Quick(Modifier.weight(1f), Icons.Default.People, "Pelanggan") { open(Page.PELANGGAN) }; Quick(Modifier.weight(1f), Icons.Default.Wallet, "Pengeluaran") { open(Page.PENGELUARAN) } } }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Quick(Modifier.weight(1f), Icons.Default.Build, "Servis") { open(Page.SERVICE) }; Quick(Modifier.weight(1f), Icons.Default.Group, "Gaji") { open(Page.GAJI) }; Quick(Modifier.weight(1f), Icons.Default.Assessment, "Laporan") { open(Page.LAPORAN) }; Quick(Modifier.weight(1f), Icons.Default.Settings, "Pengaturan") { open(Page.PENGATURAN) } } }; item { Card(colors = CardDefaults.cardColors(Card2), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(16.dp)) { Text("Status backend", fontWeight = FontWeight.Bold); Text("Data finansial ditarik dari server. Modul tanpa endpoint resmi tidak memakai data dummy.", color = Muted, modifier = Modifier.padding(top = 7.dp)) } } } } }
+@Composable private fun Header(title: String, subtitle: String? = null, back: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (back != null) IconButton(onClick = back) { Icon(Icons.Default.ArrowBack, "Kembali") }
+        Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); subtitle?.let { Text(it, color = Muted) } }
+    }
+}
 
-@Composable private fun AlertRow(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) { Card(Modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = AppColors.primary, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold); Text(subtitle, color = Muted) }; Icon(Icons.Default.ChevronRight, null, tint = Muted) } } }
+@Composable private fun CardText(title: String, body: String, onClick: (() -> Unit)? = null) {
+    Card(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier), colors = CardDefaults.cardColors(CardColor), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) { Text(title, fontWeight = FontWeight.Bold); Text(body, color = Muted) }
+    }
+}
 
-@Composable private fun CashierPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; var opening by remember { mutableStateOf(false) }; var closing by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); fun reload() = scope.launch { error = ""; runCatching { api.kasirCurrent() }.onSuccess { data = it }.onFailure { error = it.message ?: "Gagal memuat sesi" } }; LaunchedEffect(Unit) { reload() }; LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Kasir & Rekonsiliasi", "Sumber saldo: backend", back) }; item { Card(colors = CardDefaults.cardColors(Card2), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Sesi Kasir", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text(data?.firstString("nama_kasir", "kasir", "nama") ?: "Kasir", color = Muted) }; Status(data?.firstString("status", "state")?.uppercase() ?: "MEMUAT", data?.firstString("status")?.uppercase() != "DITUTUP") }; if (error.isNotBlank()) ErrorBox(error); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(Modifier.weight(1f), onClick = { opening = true }) { Text("Opening") }; OutlinedButton(Modifier.weight(1f), onClick = { closing = true }) { Text("Closing") } } } } }; item { Text("Saldo Akun", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }; val accounts = data?.firstArray("saldo", "saldo_akun", "accounts", "akun")?.safeList().orEmpty(); if (accounts.isEmpty()) item { InfoBox("Belum ada rincian saldo dari endpoint kasir/current.") } else items(accounts) { a -> Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(a.firstString("nama_akun", "nama", "akun"), fontWeight = FontWeight.SemiBold); Text(a.firstString("jenis", "type"), color = Muted, style = MaterialTheme.typography.bodySmall) }; Text(rupiah(a.firstNumber("saldo", "saldo_real", "nominal")), fontWeight = FontWeight.Bold) } } } ; if (opening) AccountDialog("Opening Kasir", api, false) { opening = false; reload() }; if (closing) AccountDialog("Closing & Rekonsiliasi", api, true) { closing = false; reload() } }
+@Composable private fun Home(p: PaddingValues, open: (Page) -> Unit, role: String) {
+    LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("Irkop Cell", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Sesi Kasir: Aktif", color = Good, fontWeight = FontWeight.Bold) }; Text(role.ifBlank { "KASIR" }, color = Scheme.primary, fontWeight = FontWeight.Bold) } }
+        item { CardText("Sesi Kasir", "Opening, saldo akun dan rekonsiliasi", { open(Page.KASIR) }) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Metric("Saldo Kas", "—"); Metric("Omzet Hari Ini", "—"); Metric("Transaksi", "—") } }
+        item { Text("Menu Kasir Utama", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Quick("Stok", Icons.Default.Inventory2) { open(Page.STOK) }; Quick("Kasbon", Icons.Default.ReceiptLong) { open(Page.KASBON) }; Quick("Pelanggan", Icons.Default.People) { open(Page.PELANGGAN) }; Quick("Pengeluaran", Icons.Default.Wallet) { open(Page.PENGELUARAN) } } }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Quick("Service", Icons.Default.Build) { open(Page.SERVICE) }; Quick("Gaji", Icons.Default.Assessment) { open(Page.GAJI) }; Quick("Laporan", Icons.Default.Assessment) { open(Page.LAPORAN) }; Quick("Transaksi", Icons.Default.ReceiptLong) { open(Page.TRANSAKSI) } } }
+        item { CardText("Backend", "Endpoint resmi dipakai untuk data finansial. Modul yang belum ada kontraknya tidak mengirim request fiktif.") }
+    }
+}
 
-@Composable private fun AccountDialog(title: String, api: ApiClient, close: Boolean, onDone: () -> Unit) { var values by remember { mutableStateOf(listOf("Kas" to "", "OrderKuota" to "", "DANA" to "", "SeaBank" to "", "QRIS" to "")) }; var note by remember { mutableStateOf("") }; var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = { if (!saving) onDone() }, title = { Text(title) }, text = { FormColumn { values.forEachIndexed { i,p -> Field(p.first, p.second) { v -> values = values.toMutableList().also { it[i] = p.first to v } } }; if (close) Field("Catatan closing", note) { note = it }; if (error.isNotBlank()) Text(error, color = AppColors.error) } }, confirmButton = { Button(enabled = !saving, onClick = { scope.launch { saving = true; val arr = JSONArray().apply { values.forEach { (n,v) -> put(JSONObject().put("nama_akun", n).put(if (close) "saldo_real" else "saldo", v.toLongOrNull() ?: 0L)) } }; runCatching { if (close) api.kasirClosing(arr, note) else api.kasirOpening(arr) }.onSuccess { onDone() }.onFailure { error = it.message ?: "Gagal menyimpan" }; saving = false } }) { Text(if (saving) "Menyimpan…" else "Simpan") } }, dismissButton = { TextButton(onClick = onDone, enabled = !saving) { Text("Batal") } }) }
+@Composable private fun Metric(title: String, value: String) { Card(Modifier.weight(1f), colors = CardDefaults.cardColors(CardColor), shape = RoundedCornerShape(14.dp)) { Column(Modifier.padding(10.dp)) { Text(title, color = Muted, style = MaterialTheme.typography.labelSmall); Text(value, fontWeight = FontWeight.Bold) } } }
 
-@Composable private fun TransactionPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var rows by remember { mutableStateOf(emptyList<JSONObject>()) }; var error by remember { mutableStateOf("") }; var loading by remember { mutableStateOf(true) }; var date by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() = scope.launch { loading = true; error = ""; runCatching { api.transaksi(if (date.isBlank()) emptyMap() else mapOf("date" to date, "limit" to "100")) }.onSuccess { rows = it.firstArray("items", "data", "transaksi", "results")?.safeList().orEmpty() }.onFailure { error = it.message ?: "Gagal memuat transaksi" }; loading = false }; LaunchedEffect(Unit) { reload() }; LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Transaksi", "Riwayat transaksi dari backend", back) }; item { OutlinedTextField(date, { date = it }, label = { Text("Tanggal YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth(), trailingIcon = { IconButton(onClick = { reload() }) { Icon(Icons.Default.Refresh, "Muat") } }) }; if (loading) item { Box(Modifier.fillMaxWidth().padding(24.dp), Alignment.Center) { CircularProgressIndicator() } }; if (error.isNotBlank()) item { ErrorBox(error) }; if (!loading && rows.isEmpty() && error.isBlank()) item { InfoBox("Tidak ada transaksi pada filter ini.") }; items(rows) { t -> TransactionCard(t, api) { reload() } } } }
+@Composable private fun Quick(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, click: () -> Unit) { Card(Modifier.weight(1f).clickable(onClick = click), colors = CardDefaults.cardColors(CardColor), shape = RoundedCornerShape(14.dp)) { Column(Modifier.fillMaxWidth().padding(vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(icon, null, tint = Scheme.primary); Spacer(Modifier.height(6.dp)); Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold) } } }
 
-@Composable private fun TransactionCard(t: JSONObject, api: ApiClient, onChanged: () -> Unit) { var edit by remember { mutableStateOf(false) }; var del by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); val id = t.firstString("id", "transaksi_id"); Card(colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(t.firstString("nomor", "kode", "invoice", "id"), fontWeight = FontWeight.Bold); Text(t.firstString("metode_bayar", "metode", "payment_method"), color = Muted); Text(rupiah(t.firstNumber("total", "nominal", "grand_total")), color = Good, fontWeight = FontWeight.Bold) }; IconButton(onClick = { edit = true }) { Icon(Icons.Default.Edit, "Edit") }; IconButton(onClick = { del = true }) { Icon(Icons.Default.Delete, "Hapus") } } }; if (edit) TransactionEditDialog(t, api) { edit = false; onChanged() }; if (del) ConfirmDialog("Hapus transaksi?", "Transaksi akan di-soft-delete dan mutasi dibalik oleh backend.", { del = false }, { scope.launch { runCatching { api.deleteTransaksi(id, "Dihapus dari aplikasi") }.onSuccess { onChanged() } }; del = false }) }
+@Composable private fun Cashier(p: PaddingValues, api: ApiClient, back: () -> Unit) {
+    var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; var open by remember { mutableStateOf(false) }; var close by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope()
+    fun load() = scope.launch { runCatching { api.kasirCurrent() }.onSuccess { data = it }.onFailure { error = it.message ?: "Gagal memuat" } }
+    LaunchedEffect(Unit) { load() }
+    val accounts = data?.a("saldo", "saldo_akun", "accounts", "akun").orEmpty()
+    LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Header("Kasir & Rekonsiliasi", "Backend /api/kasir/current", back) }
+        item { CardText("Status", data?.s("status", "state")?.uppercase() ?: "MEMUAT") }
+        if (error.isNotBlank()) item { CardText("Error", error) }
+        item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(Modifier.weight(1f), onClick = { open = true }) { Text("Opening") }; OutlinedButton(Modifier.weight(1f), onClick = { close = true }) { Text("Closing") } } }
+        item { Text("Saldo Akun", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        if (accounts.isEmpty()) item { CardText("Saldo", "Belum ada rincian saldo dari server.") }
+        items(accounts) { a -> Row(Modifier.fillMaxWidth().padding(5.dp), verticalAlignment = Alignment.CenterVertically) { Text(a.s("nama_akun", "nama", "akun"), Modifier.weight(1f)); Text(rp(a.n("saldo", "saldo_real", "nominal")), fontWeight = FontWeight.Bold) } }
+    }
+    if (open) AccountDialog("Opening Kasir", api, false) { open = false; load() }
+    if (close) AccountDialog("Closing Kasir", api, true) { close = false; load() }
+}
 
-@Composable private fun TransactionEditDialog(old: JSONObject, api: ApiClient, onDone: () -> Unit) { var method by remember { mutableStateOf(old.firstString("metode_bayar", "metode")) }; var customer by remember { mutableStateOf(old.optString("pelanggan_id")) }; var account by remember { mutableStateOf(old.optString("akun_penerima")) }; var amount by remember { mutableStateOf(old.firstNumber("total", "nominal")) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); val id = old.firstString("id", "transaksi_id"); AlertDialog(onDismissRequest = onDone, title = { Text("Edit Transaksi") }, text = { FormColumn { Field("Total / Nominal", amount) { amount = it }; Field("Metode Bayar", method) { method = it }; Field("Pelanggan ID", customer) { customer = it }; Field("Akun Penerima", account) { account = it }; if (error.isNotBlank()) Text(error, color = AppColors.error) } }, confirmButton = { Button(onClick = { scope.launch { val body = JSONObject().put("items", old.optJSONArray("items") ?: JSONArray()).put("metode_bayar", method).put("manual_entry", true).put("tanggal_transaksi", old.optString("tanggal_transaksi")).put("nominal", amount.toLongOrNull() ?: 0L); if (customer.isNotBlank()) body.put("pelanggan_id", customer); if (account.isNotBlank()) body.put("akun_penerima", account); runCatching { api.updateTransaksi(id, body) }.onSuccess { onDone() }.onFailure { error = it.message ?: "Gagal mengubah transaksi" } } }) { Text("Simpan") } }, dismissButton = { TextButton(onClick = onDone) { Text("Batal") } }) }
+@Composable private fun AccountDialog(title: String, api: ApiClient, closing: Boolean, done: () -> Unit) {
+    var fields by remember { mutableStateOf(listOf("Kas" to "", "OrderKuota" to "", "DANA" to "", "SeaBank" to "", "QRIS" to "")) }; var note by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
+    AlertDialog(onDismissRequest = done, title = { Text(title) }, text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) { fields.forEachIndexed { i, pair -> OutlinedTextField(pair.second, { v -> fields = fields.toMutableList().also { it[i] = pair.first to v } }, label = { Text(pair.first) }, singleLine = true) }; if (closing) OutlinedTextField(note, { note = it }, label = { Text("Catatan") }); if (error.isNotBlank()) Text(error, color = Scheme.error) } }, confirmButton = { Button(onClick = { scope.launch { val a = JSONArray(); fields.forEach { (n,v) -> a.put(JSONObject().put("nama_akun", n).put(if (closing) "saldo_real" else "saldo", v.toLongOrNull() ?: 0L)) }; runCatching { if (closing) api.kasirClosing(a, note) else api.kasirOpening(a) }.onSuccess { done() }.onFailure { error = it.message ?: "Gagal menyimpan" } } }) { Text("Simpan") } }, dismissButton = { TextButton(onClick = done) { Text("Batal") } })
+}
+
+@Composable private fun Transactions(p: PaddingValues, api: ApiClient, back: () -> Unit) {
+    var rows by remember { mutableStateOf(emptyList<JSONObject>()) }; var date by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope()
+    fun load() = scope.launch { runCatching { api.transaksi(if (date.isBlank()) emptyMap() else mapOf("date" to date, "limit" to "100")) }.onSuccess { rows = it.a("items", "data", "transaksi", "results") }.onFailure { error = it.message ?: "Gagal memuat" } }
+    LaunchedEffect(Unit) { load() }
+    LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Header("Transaksi", "Riwayat /api/transaksi", back) }
+        item { OutlinedTextField(date, { date = it }, label = { Text("Tanggal YYYY-MM-DD") }, singleLine = true, modifier = Modifier.fillMaxWidth(), trailingIcon = { IconButton(onClick = { load() }) { Icon(Icons.Default.Refresh, "Muat") } }) }
+        if (error.isNotBlank()) item { CardText("Error", error) }
+        if (rows.isEmpty() && error.isBlank()) item { CardText("Transaksi", "Tidak ada transaksi.") }
+        items(rows) { t -> CardText(t.s("nomor", "invoice", "kode", "id"), "${t.s("metode_bayar", "metode")} • ${rp(t.n("total", "grand_total", "nominal"))}") }
+    }
+}
+
+@Composable private fun Reports(p: PaddingValues, api: ApiClient, back: () -> Unit) {
+    var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); val month = java.time.LocalDate.now().toString().substring(0,7)
+    LaunchedEffect(Unit) { scope.launch { runCatching { api.laporanBulan(month) }.onSuccess { data = it }.onFailure { error = it.message ?: "Gagal memuat" } } }
+    LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Laporan", "Bulan $month", back) }; if (error.isNotBlank()) item { CardText("Error", error) }; item { Metric("Omzet", rp(data?.n("omzet", "total_omzet", "penjualan") ?: 0L)) }; item { Metric("Jumlah Transaksi", data?.s("jumlah_transaksi", "total_transaksi", "count") ?: "0") }; item { CardText("Data", "Ditampilkan sebagai UI terstruktur, bukan raw JSON.") } }
+}
+
+@Composable private fun Kasbon(p: PaddingValues, api: ApiClient, back: () -> Unit) {
+    var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; var add by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope()
+    fun load() = scope.launch { runCatching { api.kasbon() }.onSuccess { data = it }.onFailure { error = it.message ?: "Gagal memuat" } }; LaunchedEffect(Unit) { load() }
+    val rows = data?.a("items", "data", "kasbon", "results").orEmpty()
+    LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp,8.dp,16.dp,110.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { item { Header("Kasbon Pelanggan", "GET /api/kasbon", back) }; item { Button(Modifier.fillMaxWidth(), onClick = { add = true }) { Text("Tambah Kasbon") } }; if (error.isNotBlank()) item { CardText("Error", error) }; items(rows) { r -> CardText(r.s("nama_pelanggan", "pelanggan", "nama"), "${r.s("status", "tanggal_jatuh_tempo")} • ${rp(r.n("sisa", "saldo", "nominal", "jumlah"))}") }; if (rows.isEmpty() && error.isBlank()) item { CardText("Kasbon", "Belum ada data.") } }
+    if (add) KasbonDialog(api) { add = false; load() }
+}
+
+@Composable private fun KasbonDialog(api: ApiClient, done: () -> Unit) { var customer by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }; var due by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = done, title = { Text("Tambah Kasbon") }, text = { Column(verticalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(customer,{customer=it},label={Text("Pelanggan ID")}); OutlinedTextField(amount,{amount=it},label={Text("Nominal")}); OutlinedTextField(due,{due=it},label={Text("Jatuh tempo")}); if(error.isNotBlank()) Text(error,color=Scheme.error) } }, confirmButton = { Button(onClick = { scope.launch { val b=JSONObject().put("pelanggan_id",customer).put("nominal",amount.toLongOrNull()?:0L); if(due.isNotBlank()) b.put("tanggal_jatuh_tempo",due); runCatching { api.createKasbon(b) }.onSuccess { done() }.onFailure { error=it.message?:"Gagal menyimpan" } } }) { Text("Simpan") } }, dismissButton = { TextButton(onClick=done){Text("Batal")} }) }
+
+@Composable private fun Payroll(p: PaddingValues, api: ApiClient, back: () -> Unit) { var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; val scope=rememberCoroutineScope(); LaunchedEffect(Unit){scope.launch{runCatching{api.gaji()}.onSuccess{data=it}.onFailure{error=it.message?:"Gagal memuat"}}}; val rows=data?.a("items","data","gaji","results").orEmpty(); LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(16.dp,8.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){item{Header("Gaji Karyawan","GET /api/gaji",back)};if(error.isNotBlank())item{CardText("Error",error)};item{CardText("Rate","GET /api/gaji/rate tersedia di backend")};items(rows){r->CardText(r.s("nama","nama_karyawan","karyawan"),rp(r.n("total","gaji","nominal")))};if(rows.isEmpty()&&error.isBlank())item{CardText("Payroll","Belum ada data.")}} }
+
+@Composable private fun More(p: PaddingValues, open: (Page)->Unit, back:()->Unit, payroll:Boolean){val modules=listOf("Stok" to Page.STOK,"Kategori" to Page.KATEGORI,"Service HP" to Page.SERVICE,"Kasbon" to Page.KASBON,"Pelanggan" to Page.PELANGGAN,"Pengeluaran" to Page.PENGELUARAN,"Gaji Karyawan" to Page.GAJI,"Pengaturan" to Page.PENGATURAN,"Transaksi" to Page.TRANSAKSI);LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(16.dp,8.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){item{Header("Lainnya","Semua modul",back)};items(modules){(name,target)->val enabled=target!=Page.GAJI||payroll;Card(Modifier.fillMaxWidth().clickable(enabled){open(target)},colors=CardDefaults.cardColors(CardColor),shape=RoundedCornerShape(15.dp)){Row(Modifier.padding(16.dp).fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Text(name,Modifier.weight(1f),fontWeight=FontWeight.SemiBold);Text(if(enabled)"Buka →" else "Tidak tersedia",color=if(enabled)Scheme.primary else Muted)}}}}}
+
+@Composable private fun Unsupported(p:PaddingValues,title:String,message:String,back:()->Unit){Box(Modifier.fillMaxSize().padding(p),contentAlignment=Alignment.Center){Card(Modifier.fillMaxWidth().padding(20.dp),colors=CardDefaults.cardColors(CardColor)){Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Header(title,back=back);Text(message,color=Muted);Text("Tidak ada endpoint fiktif/dummy yang digunakan.",color=Scheme.primary,fontWeight=FontWeight.Bold)}}}}
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable private fun TransactionSheet(api: ApiClient, onClose: () -> Unit) { var mode by remember { mutableStateOf("regular") }; var productId by remember { mutableStateOf("") }; var qty by remember { mutableStateOf("1") }; var method by remember { mutableStateOf("Tunai") }; var account by remember { mutableStateOf("") }; var customer by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }; var saving by remember { mutableStateOf(false) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); ModalBottomSheet(onDismissRequest = { if (!saving) onClose() }, containerColor = Color(0xFF292929)) { Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Box(Modifier.fillMaxWidth(), Alignment.Center) { Surface(Modifier.width(56.dp).height(5.dp), RoundedCornerShape(3.dp), Muted) }; Text("Transaksi Baru", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("POST /api/transaksi • Idempotency-Key otomatis", color = Muted); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(mode == "regular", { mode = "regular" }, label = { Text("Transaksi Biasa") }); FilterChip(mode == "service", { mode = "service" }, label = { Text("Servis HP") }) }; Field("Produk ID / SKU", productId) { productId = it }; Field("Qty", qty) { qty = it }; Field("Total / Nominal", amount) { amount = it }; Field("Metode Bayar", method) { method = it }; Field("Akun Penerima", account) { account = it }; Field("Pelanggan ID / WhatsApp", customer) { customer = it }; if (error.isNotBlank()) ErrorBox(error); Button(Modifier.fillMaxWidth(), enabled = !saving, onClick = { scope.launch { saving = true; val body = JSONObject().put("items", JSONArray().apply { if (productId.isNotBlank()) put(JSONObject().put("produk_id", productId).put("qty", qty.toIntOrNull() ?: 1)) }).put("metode_bayar", method).put("manual_entry", productId.isBlank()).put("nominal", amount.toLongOrNull() ?: 0L); if (account.isNotBlank()) body.put("akun_penerima", account); if (customer.isNotBlank()) body.put("pelanggan_id", customer); if (mode == "service") body.put("jenis_transaksi", "SERVICE"); runCatching { api.createTransaksi(body) }.onSuccess { onClose() }.onFailure { error = it.message ?: "Transaksi gagal" }; saving = false } }) { Text(if (saving) "Memproses…" else "Konfirmasi Transaksi") } } } }
-
-@Composable private fun ReportPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var month by remember { mutableStateOf(java.time.LocalDate.now().toString().take(7)) }; var data by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() = scope.launch { error = ""; runCatching { api.laporanBulan(month) }.onSuccess { data = it }.onFailure { error = it.message ?: "Gagal memuat laporan" } }; LaunchedEffect(Unit) { reload() }; val d = data; LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Laporan Kasir", "Ringkasan bulan berjalan", back) }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) { OutlinedTextField(month, { month = it }, label = { Text("Bulan YYYY-MM") }, singleLine = true, modifier = Modifier.weight(1f)); IconButton(onClick = { reload() }) { Icon(Icons.Default.Refresh, "Muat") } } }; if (error.isNotBlank()) item { ErrorBox(error) }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Metric("Transaksi", d?.firstNumber("jumlah_transaksi", "total_transaksi") ?: "—", "Bulan", Modifier.weight(1f)); Metric("Omzet", d?.let { rupiah(it.firstNumber("omzet", "total_omzet")) } ?: "—", "Bulan", Modifier.weight(1f)) } }; item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Metric("Laba", d?.let { rupiah(it.firstNumber("laba", "profit")) } ?: "—", "Bulan", Modifier.weight(1f)); Metric("Pengeluaran", d?.optJSONObject("pengeluaran")?.let { rupiah(it.firstNumber("total", "jumlah")) } ?: "—", "Bulan", Modifier.weight(1f)) } }; item { SectionCard("Kasbon", d?.optJSONObject("kasbon")); SectionCard("Pengeluaran", d?.optJSONObject("pengeluaran")); SectionCard("Perbandingan Bulan Sebelumnya", d?.optJSONObject("perbandingan_bulan_sebelumnya")) } } }
-@Composable private fun SectionCard(title: String, obj: JSONObject?) { Card(colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { Text(title, fontWeight = FontWeight.Bold); if (obj == null) Text("—", color = Muted) else obj.keys().forEach { k -> Text("${k.replace('_', ' ').replaceFirstChar { it.uppercase() }}: ${obj.optString(k)}", color = Muted) } } } }
-
-@Composable private fun KasbonPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var rows by remember { mutableStateOf(emptyList<JSONObject>()) }; var error by remember { mutableStateOf("") }; var add by remember { mutableStateOf(false) }; val scope = rememberCoroutineScope(); fun reload() = scope.launch { error = ""; runCatching { api.kasbon() }.onSuccess { rows = it.firstArray("items", "data", "kasbon", "results")?.safeList().orEmpty() }.onFailure { error = it.message ?: "Gagal memuat kasbon" } }; LaunchedEffect(Unit) { reload() }; LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Buku Kasbon", "Hutang pelanggan", back, { add = true }) }; if (error.isNotBlank()) item { ErrorBox(error) }; if (rows.isEmpty() && error.isBlank()) item { InfoBox("Belum ada data kasbon dari server.") }; items(rows) { k -> KasbonCard(k, api) { reload() } } }; if (add) KasbonDialog(api) { add = false; reload() } }
-@Composable private fun KasbonCard(k: JSONObject, api: ApiClient, reload: () -> Unit) { var pay by remember { mutableStateOf(false) }; Card(colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(k.firstString("pelanggan_nama", "nama_pelanggan", "pelanggan_id"), fontWeight = FontWeight.Bold); Text("Jatuh tempo: ${k.firstString("jatuh_tempo", "due_date")}", color = Muted); Text(rupiah(k.firstNumber("nominal_belum_lunas", "sisa", "nominal")), color = AppColors.error, fontWeight = FontWeight.Bold) }; Button(onClick = { pay = true }) { Text("Bayar") } } }; if (pay) KasbonPayDialog(api, k.firstString("id", "kasbon_id"), k) { pay = false; reload() } }
-@Composable private fun KasbonDialog(api: ApiClient, onDone: () -> Unit) { var customer by remember { mutableStateOf("") }; var amount by remember { mutableStateOf("") }; var due by remember { mutableStateOf("") }; var note by remember { mutableStateOf("") }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = onDone, title = { Text("Tambah Kasbon") }, text = { FormColumn { Field("Pelanggan ID", customer) { customer = it }; Field("Nominal", amount) { amount = it }; Field("Jatuh tempo YYYY-MM-DD", due) { due = it }; Field("Catatan", note) { note = it }; if (error.isNotBlank()) Text(error, color = AppColors.error) } }, confirmButton = { Button(onClick = { scope.launch { val b = JSONObject().put("pelanggan_id", customer).put("nominal", amount.toLongOrNull() ?: 0L); if (due.isNotBlank()) b.put("jatuh_tempo", due); if (note.isNotBlank()) b.put("catatan", note); runCatching { api.createKasbon(b) }.onSuccess { onDone() }.onFailure { error = it.message ?: "Gagal" } } }) { Text("Simpan") } }, dismissButton = { TextButton(onClick = onDone) { Text("Batal") } }) }
-@Composable private fun KasbonPayDialog(api: ApiClient, id: String, old: JSONObject, onDone: () -> Unit) { var amount by remember { mutableStateOf(old.firstNumber("nominal_belum_lunas", "sisa", "nominal")) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); AlertDialog(onDismissRequest = onDone, title = { Text("Pembayaran Kasbon") }, text = { FormColumn { Field("Nominal pembayaran", amount) { amount = it }; if (error.isNotBlank()) Text(error, color = AppColors.error) } }, confirmButton = { Button(onClick = { scope.launch { val n = amount.toLongOrNull() ?: 0L; val b = JSONObject().put("pembayaran", n).put("nominal_bayar", n); runCatching { api.updateKasbon(id, b) }.onSuccess { onDone() }.onFailure { error = it.message ?: "Gagal membayar" } } }) { Text("Bayar") } }, dismissButton = { TextButton(onClick = onDone) { Text("Batal") } }) }
-
-@Composable private fun PayrollPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var rows by remember { mutableStateOf(emptyList<JSONObject>()) }; var rates by remember { mutableStateOf<JSONObject?>(null) }; var error by remember { mutableStateOf("") }; val scope = rememberCoroutineScope(); fun reload() = scope.launch { error = ""; runCatching { api.gaji() }.onSuccess { rows = it.firstArray("items", "data", "gaji", "results")?.safeList().orEmpty() }.onFailure { error = it.message ?: "Gagal memuat gaji" }; runCatching { api.gajiRates() }.onSuccess { rates = it } }; LaunchedEffect(Unit) { reload() }; LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Gaji Karyawan", "Modul owner / admin", back) }; if (error.isNotBlank()) item { ErrorBox(error) }; item { SectionCard("Tarif / Rate", rates) }; if (rows.isEmpty() && error.isBlank()) item { InfoBox("Belum ada data gaji.") }; items(rows) { g -> Card(colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(16.dp)) { Column(Modifier.padding(14.dp)) { Text(g.firstString("nama_karyawan", "karyawan_nama", "karyawan_id"), fontWeight = FontWeight.Bold); Text(g.firstString("periode", "bulan", "tanggal"), color = Muted); Text(rupiah(g.firstNumber("total", "nominal", "gaji_bersih")), color = Good, fontWeight = FontWeight.Bold) } } } } }
-
-@Composable private fun MorePage(pad: PaddingValues, open: (Page) -> Unit, back: () -> Unit, showGaji: Boolean, showSettings: Boolean) { LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Lainnya", "Semua modul Irkop Cell", back) }; listOf(Page.STOK to "Daftar Barang & Stok", Page.KATEGORI to "Kelola Kategori", Page.SERVICE to "Laporan Servis HP", Page.KASBON to "Buku Kasbon", Page.PELANGGAN to "Data Pelanggan", Page.PENGELUARAN to "Catatan Pengeluaran").forEach { (p,n) -> item { MenuRow(n) { open(p) } } }; if (showGaji) item { MenuRow("Gaji Karyawan") { open(Page.GAJI) } }; if (showSettings) item { MenuRow("Pengaturan") { open(Page.PENGATURAN) } } } }
-@Composable private fun MenuRow(title: String, onClick: () -> Unit) { Card(Modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(18.dp)) { Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.ChevronRight, null, tint = AppColors.primary); Spacer(Modifier.width(16.dp)); Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Icon(Icons.Default.ChevronRight, null, tint = Muted) } } }
-
-@Composable private fun SettingsPage(pad: PaddingValues, api: ApiClient, back: () -> Unit) { var dark by remember { mutableStateOf(true) }; var notif by remember { mutableStateOf(true) }; var dialog by remember { mutableStateOf("") }; val user = api.cachedUser(); LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) { item { Header("Pengaturan", "Konfigurasi Irkop Cell", back) }; item { SettingSwitch("Tampilan & Mode Gelap", "Mode OLED gelap", dark) { dark = it } }; item { SettingSwitch("Notifikasi", "Pengingat lokal", notif) { notif = it } }; item { SettingRow("Profil & Hak Akses", "Role: ${user?.optString("role", "-")}") { dialog = "Hak Akses" } }; item { SettingRow("Notifikasi Hook", "Konfigurasi webhook") { dialog = "Notifikasi Hook" } }; item { SettingRow("Outlet & Printer", "Perangkat lokal") { dialog = "Outlet & Printer" } }; item { SettingRow("Console Log / System Log", "Diagnostik aplikasi") { dialog = "System Log" } } }; if (dialog.isNotBlank()) AlertDialog(onDismissRequest = { dialog = "" }, title = { Text(dialog) }, text = { Text("Belum ada endpoint konfigurasi untuk modul ini dalam kontrak API resmi. Tidak ada data palsu yang disimpan.", color = Muted) }, confirmButton = { TextButton(onClick = { dialog = "" }) { Text("Tutup") } }) }
-@Composable private fun SettingSwitch(title: String, subtitle: String, value: Boolean, onChange: (Boolean) -> Unit) { Card(colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(18.dp)) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(subtitle, color = Muted) }; Switch(value, onChange) } } }
-@Composable private fun SettingRow(title: String, subtitle: String, onClick: () -> Unit) { Card(Modifier.clickable(onClick = onClick), colors = CardDefaults.cardColors(Card1), shape = RoundedCornerShape(18.dp)) { Column(Modifier.fillMaxWidth().padding(16.dp)) { Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium); Text(subtitle, color = Muted) } } }
-@Composable private fun UnsupportedPage(pad: PaddingValues, title: String, message: String, back: () -> Unit) { Column(Modifier.fillMaxSize().padding(pad).padding(16.dp)) { Header(title, "Menunggu kontrak API", back); Spacer(Modifier.height(20.dp)); InfoBox(message); Spacer(Modifier.height(12.dp)); Text("Navigasi tetap aktif, tetapi aplikasi tidak mengirim request endpoint yang belum didefinisikan.", color = Muted) } }
-@Composable private fun SearchDialog(open: (Page) -> Unit, onClose: () -> Unit) { var q by remember { mutableStateOf("") }; AlertDialog(onDismissRequest = onClose, title = { Text("Cari modul") }, text = { FormColumn { Field("Pencarian", q) { q = it }; if (q.isNotBlank()) listOf("Transaksi" to Page.TRANSAKSI, "Kasir" to Page.KASIR, "Laporan" to Page.LAPORAN, "Kasbon" to Page.KASBON, "Stok" to Page.STOK, "Pelanggan" to Page.PELANGGAN, "Servis" to Page.SERVICE, "Pengeluaran" to Page.PENGELUARAN, "Gaji" to Page.GAJI, "Pengaturan" to Page.PENGATURAN).filter { it.first.contains(q, true) }.forEach { (n,p) -> TextButton(onClick = { onClose(); open(p) }) { Text(n) } } } }, confirmButton = { TextButton(onClick = onClose) { Text("Tutup") } }) }
-@Composable private fun InfoBox(text: String) { Card(colors = CardDefaults.cardColors(Card2), shape = RoundedCornerShape(16.dp)) { Text(text, Modifier.fillMaxWidth().padding(15.dp), color = Muted) } }
-@Composable private fun ErrorBox(text: String) { Card(colors = CardDefaults.cardColors(Color(0xFF3A2424)), shape = RoundedCornerShape(16.dp)) { Text(text, Modifier.fillMaxWidth().padding(15.dp), color = AppColors.error) } }
-@Composable private fun FormColumn(content: @Composable ColumnScope.() -> Unit) { Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(9.dp), content = content) }
-@Composable private fun Field(label: String, value: String, onValue: (String) -> Unit) { OutlinedTextField(value, onValue, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
-@Composable private fun ConfirmDialog(title: String, message: String, onCancel: () -> Unit, onConfirm: () -> Unit) { AlertDialog(onDismissRequest = onCancel, title = { Text(title) }, text = { Text(message) }, confirmButton = { Button(onClick = onConfirm) { Text("Ya") } }, dismissButton = { TextButton(onClick = onCancel) { Text("Batal") } }) }
+@Composable private fun TransactionSheet(api:ApiClient,close:()->Unit){var product by remember{mutableStateOf("")};var qty by remember{mutableStateOf("1")};var method by remember{mutableStateOf("Tunai")};var customer by remember{mutableStateOf("")};var account by remember{mutableStateOf("")};var error by remember{mutableStateOf("")};var saving by remember{mutableStateOf(false)};val scope=rememberCoroutineScope();ModalBottomSheet(onDismissRequest={if(!saving)close()},containerColor=Color(0xFF292929)){Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){Text("Transaksi Baru",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Idempotency-Key otomatis",color=Muted);OutlinedTextField(product,{product=it},label={Text("Produk ID")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(qty,{qty=it},label={Text("Qty")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(method,{method=it},label={Text("Metode Bayar")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(account,{account=it},label={Text("Akun Penerima")},singleLine=true,modifier=Modifier.fillMaxWidth());OutlinedTextField(customer,{customer=it},label={Text("Pelanggan ID")},singleLine=true,modifier=Modifier.fillMaxWidth());if(error.isNotBlank())Text(error,color=Scheme.error);Button(enabled=!saving,onClick={scope.launch{saving=true;val b=JSONObject().put("items",JSONArray().apply{if(product.isNotBlank())put(JSONObject().put("produk_id",product).put("qty",qty.toIntOrNull()?:1))}).put("metode_bayar",method).put("manual_entry",true);if(customer.isNotBlank())b.put("pelanggan_id",customer);if(account.isNotBlank())b.put("akun_penerima",account);runCatching{api.createTransaksi(b)}.onSuccess{close()}.onFailure{error=it.message?:"Transaksi gagal"};saving=false}}){Text(if(saving)"Menyimpan…" else "Simpan Transaksi")}}}}

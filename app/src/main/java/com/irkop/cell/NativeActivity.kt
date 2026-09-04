@@ -46,8 +46,7 @@ class NativeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { MaterialTheme(colorScheme = Colors) { AutoLogin() } } }
 }
 
-@Composable
-private fun AutoLogin() {
+@Composable private fun AutoLogin() {
     val context = LocalContext.current
     val api = remember(context) { ApiClient(context) }
     var ready by remember { mutableStateOf(false) }
@@ -66,8 +65,7 @@ private fun AutoLogin() {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AppShell(api: ApiClient) {
+@Composable private fun AppShell(api: ApiClient) {
     var page by remember { mutableStateOf(Page.HOME) }
     var stack by remember { mutableStateOf(listOf<Page>()) }
     var sheet by remember { mutableStateOf(false) }
@@ -78,12 +76,14 @@ private fun AppShell(api: ApiClient) {
     BackHandler(enabled = true) { back() }
     Scaffold(
         containerColor = Colors.background,
-        bottomBar = { NavigationBar(containerColor = Color(0xFF292929)) {
-            NavItem(page == Page.HOME, { root(Page.HOME) }, Icons.Default.Home, "Beranda")
-            NavItem(page == Page.KASIR, { root(Page.KASIR) }, Icons.Default.PointOfSale, "Kasir")
-            NavItem(page == Page.LAPORAN, { root(Page.LAPORAN) }, Icons.Default.Assessment, "Laporan")
-            NavItem(page == Page.LAINNYA, { root(Page.LAINNYA) }, Icons.Default.MoreHoriz, "Lainnya")
-        } },
+        bottomBar = {
+            NavigationBar(containerColor = Color(0xFF292929)) {
+                NavItem(page == Page.HOME, { root(Page.HOME) }, Icons.Default.Home, "Beranda")
+                NavItem(page == Page.KASIR, { root(Page.KASIR) }, Icons.Default.PointOfSale, "Kasir")
+                NavItem(page == Page.LAPORAN, { root(Page.LAPORAN) }, Icons.Default.Assessment, "Laporan")
+                NavItem(page == Page.LAINNYA, { root(Page.LAINNYA) }, Icons.Default.MoreHoriz, "Lainnya")
+            }
+        },
         floatingActionButton = { FloatingActionButton(onClick = { sheet = true }, containerColor = Colors.primary, contentColor = Colors.onPrimary) { Icon(Icons.Default.Add, "Transaksi Baru") } }
     ) { pad ->
         when (page) {
@@ -107,7 +107,16 @@ private fun AppShell(api: ApiClient) {
 }
 
 @Composable private fun NavItem(selected: Boolean, onClick: () -> Unit, icon: ImageVector, label: String) {
-    NavigationBarItem(selected, onClick, icon = { Icon(icon, null) }, label = { Text(label) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = Colors.onPrimary, selectedTextColor = Colors.primary, indicatorColor = Color(0xFF454545), unselectedIconColor = Muted, unselectedTextColor = Muted))
+    Column(
+        modifier = Modifier.width(88.dp).clickable(onClick = onClick).padding(vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Surface(color = if (selected) Color(0xFF454545) else Color.Transparent, shape = RoundedCornerShape(22.dp)) {
+            Icon(icon, contentDescription = label, tint = if (selected) Colors.primary else Muted, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
+        }
+        Text(label, color = if (selected) Colors.primary else Muted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable private fun Header(title: String, subtitle: String? = null, back: (() -> Unit)? = null, add: (() -> Unit)? = null) {
@@ -152,8 +161,8 @@ private fun AppShell(api: ApiClient) {
         item { Card(colors = CardDefaults.cardColors(CardBg2), shape = RoundedCornerShape(20.dp)) { Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Text("Sesi Kasir", Modifier.weight(1f), color = Colors.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Status(status, status != "TUTUP") }; Text("Kasir 01 • Shift Pagi", color = Muted); Text("Saldo berjalan", color = Muted); Text("Rp 4.820.000", color = Colors.onSurface, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) } } }
         item { Text("Master Akun & E-Wallet", color = Colors.onSurface, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
         items(listOf("Kas Tunai di Laci" to "Rp 1.450.000", "OrderKuota" to "Rp 2.890.000", "DANA Merchant" to "Rp 1.150.000", "SeaBank Operasional" to "Rp 3.420.000", "QRIS" to "Rp 780.000")) { (n, v) -> Card(colors = CardDefaults.cardColors(CardBg), shape = RoundedCornerShape(16.dp)) { Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.AccountBalanceWallet, null, tint = Colors.primary); Spacer(Modifier.width(12.dp)); Text(n, Modifier.weight(1f), color = Colors.onSurface, fontWeight = FontWeight.SemiBold); Text(v, color = Colors.onSurface, fontWeight = FontWeight.Bold) } } }
-        item { Button(onClick = {}, Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Spacer(Modifier.width(8.dp)); Text("Sinkronkan Saldo") } }
-        item { OutlinedButton(onClick = {}, Modifier.fillMaxWidth()) { Text("Rekonsiliasi & Tutup Sesi") } }
+        item { Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Sync, null); Spacer(Modifier.width(8.dp)); Text("Sinkronkan Saldo") } }
+        item { OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) { Text("Rekonsiliasi & Tutup Sesi") } }
     }
 }
 
@@ -171,7 +180,7 @@ private fun AppShell(api: ApiClient) {
             item { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("Tunai", "Transfer", "Bon", "Split Bayar").forEach { m -> FilterChip(method == m, { method = m }, label = { Text(m) }) } } }
             item { OutlinedTextField(customer, { customer = it }, label = { Text("Pelanggan / Nomor WhatsApp") }, modifier = Modifier.fillMaxWidth(), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Colors.onSurface, unfocusedTextColor = Colors.onSurface, focusedLabelColor = Colors.primary, unfocusedLabelColor = Muted, focusedBorderColor = Colors.primary, unfocusedBorderColor = Colors.outline)) }
             if (result.isNotBlank()) item { Text(result, color = if (result.startsWith("Berhasil")) Good else Colors.error, fontWeight = FontWeight.Bold) }
-            item { Button(enabled = !busy, onClick = { scope.launch { busy = true; result = try { api.post("/api/transaksi", JSONObject().put("items", org.json.JSONArray()).put("metode_bayar", method).put("manual_entry", true).put("nominal", amount.toLongOrNull() ?: 0), true); "Berhasil menyimpan transaksi" } catch (e: Exception) { e.message ?: "Transaksi gagal" }; busy = false } }, Modifier.fillMaxWidth()) { if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Konfirmasi Transaksi") } }
+            item { Button(enabled = !busy, onClick = { scope.launch { busy = true; result = try { api.post("/api/transaksi", JSONObject().put("items", org.json.JSONArray()).put("metode_bayar", method).put("manual_entry", true).put("nominal", amount.toLongOrNull() ?: 0), true); "Berhasil menyimpan transaksi" } catch (e: Exception) { e.message ?: "Transaksi gagal" }; busy = false } }, modifier = Modifier.fillMaxWidth()) { if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Konfirmasi Transaksi") } }
         }
     }
 }
@@ -202,10 +211,10 @@ private fun AppShell(api: ApiClient) {
 
 @Composable private fun StockPage(pad: PaddingValues, back: () -> Unit, open: (Page) -> Unit) {
     LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 8.dp, 16.dp, 110.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Header("Daftar Barang & Stok", "Kelola katalog produk", back, {}) }
+        item { Header("Daftar Barang & Stok", "Kelola katalog produk", back) }
         item { OutlinedTextField("", {}, label = { Text("Cari produk / SKU") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth(), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Colors.onSurface, unfocusedTextColor = Colors.onSurface, focusedLabelColor = Colors.primary, unfocusedLabelColor = Muted, focusedBorderColor = Colors.primary, unfocusedBorderColor = Colors.outline)) }
-        item { Button(onClick = {}, Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tambah Produk") } }
-        item { OutlinedButton(onClick = { open(Page.KATEGORI) }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Category, null); Spacer(Modifier.width(8.dp)); Text("Kelola Kategori") } }
+        item { Button(onClick = {}, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tambah Produk") } }
+        item { OutlinedButton(onClick = { open(Page.KATEGORI) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Category, null); Spacer(Modifier.width(8.dp)); Text("Kelola Kategori") } }
         item { Text("Endpoint produk belum ada di kontrak API yang diberikan, jadi tidak dibuat endpoint fiktif.", color = Muted) }
     }
 }
@@ -234,7 +243,7 @@ private fun AppShell(api: ApiClient) {
         item { Header(title, "Irkop Cell", back, { selected = "Tambah Baru" }) }
         item { OutlinedTextField("", {}, label = { Text("Cari") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth(), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Colors.onSurface, unfocusedTextColor = Colors.onSurface, focusedLabelColor = Colors.primary, unfocusedLabelColor = Muted, focusedBorderColor = Colors.primary, unfocusedBorderColor = Colors.outline)) }
         items(rows) { row -> Card(Modifier.clickable { selected = row }, colors = CardDefaults.cardColors(CardBg), shape = RoundedCornerShape(16.dp)) { Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(row, color = Colors.onSurface, fontWeight = FontWeight.SemiBold); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { selected = row }) { Text("Detail") }; Button(onClick = { selected = row }) { Text("Kelola") } } } } }
-        item { Button(onClick = { selected = "Tambah Baru" }, Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tambah Baru") } }
+        item { Button(onClick = { selected = "Tambah Baru" }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Tambah Baru") } }
     }
     if (selected != null) AlertDialog(onDismissRequest = { selected = null }, title = { Text(if (selected == "Tambah Baru") "Tambah Data" else "Detail", color = Colors.onSurface) }, text = { Text(selected!!, color = Muted) }, confirmButton = { Button(onClick = { selected = null }) { Text("Selesai") } })
 }

@@ -21,7 +21,7 @@ android {
 
     signingConfigs {
         create("ciDebug") {
-            storeFile = file("ci-debug.keystore")
+            storeFile = file(".ci-signing/ci-debug.keystore")
             storePassword = "irkopdebug"
             keyAlias = "irkop"
             keyPassword = "irkopdebug"

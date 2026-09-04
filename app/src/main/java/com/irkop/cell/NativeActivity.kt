@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -36,17 +37,17 @@ private val High=Color(0xFF2A2A2A)
 private val Muted=Color(0xFFBCC9C5)
 private val Success=Color(0xFF4EDEA3)
 
-class NativeActivity: ComponentActivity(){
+class NativeActivity:ComponentActivity(){
     override fun onCreate(state:Bundle?){super.onCreate(state);setContent{MaterialTheme(colorScheme=Scheme){AutoLogin()}}}
 }
 private enum class Page{HOME,KASIR,TRANSAKSI,LAPORAN,STOK,KATEGORI,SERVICE,KASBON,PELANGGAN,PENGELUARAN,GAJI,LAINNYA,PENGATURAN}
 
 @Composable private fun AutoLogin(){
-    val context=LocalContext.current; val api=remember(context){ApiClient(context)}; val scope=rememberCoroutineScope()
+    val context=LocalContext.current;val api=remember(context){ApiClient(context)};val scope=rememberCoroutineScope()
     var ready by remember{mutableStateOf(false)};var error by remember{mutableStateOf("")}
     fun login(){scope.launch{error="";try{api.login("demo","demodemo");ready=true}catch(e:Exception){error=e.message?:"Login gagal"}}}
     LaunchedEffect(Unit){login()}
-    if(ready) AppShell(api) else Box(Modifier.fillMaxSize().background(Scheme.background),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)){Text("Irkop Cell",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold);CircularProgressIndicator(color=Scheme.primary);Text(if(error.isBlank())"Menyiapkan sesi kasir…" else error,color=if(error.isBlank())Muted else Scheme.error);if(error.isNotBlank())Button(::login){Text("Coba Lagi")}}}
+    if(ready)AppShell(api)else Box(Modifier.fillMaxSize().background(Scheme.background),contentAlignment=Alignment.Center){Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)){Text("Irkop Cell",style=MaterialTheme.typography.headlineLarge,fontWeight=FontWeight.Bold);CircularProgressIndicator(color=Scheme.primary);Text(if(error.isBlank())"Menyiapkan sesi kasir…" else error,color=if(error.isBlank())Muted else Scheme.error);if(error.isNotBlank())Button(::login){Text("Coba Lagi")}}}
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,9 +59,7 @@ private enum class Page{HOME,KASIR,TRANSAKSI,LAPORAN,STOK,KATEGORI,SERVICE,KASBO
         NavigationBarItem(page==Page.LAPORAN,{page=Page.LAPORAN},{Icon(Icons.Default.Assessment,"Laporan")},{Text("Laporan")})
         NavigationBarItem(page==Page.LAINNYA,{page=Page.LAINNYA},{Icon(Icons.Default.MoreHoriz,"Lainnya")},{Text("Lainnya")})
     }},floatingActionButton={if(page!=Page.PENGATURAN)FloatingActionButton({sheet=true},containerColor=Scheme.primary,contentColor=Scheme.onPrimary){Icon(Icons.Default.Add,"Transaksi Baru")}}){p->
-        when(page){
-            Page.HOME->HomePage(p,{search=true},{page=it});Page.KASIR->CashierPage(p,api);Page.TRANSAKSI->TransactionPage(p,api){page=Page.HOME};Page.LAPORAN->ReportPage(p,api,{search=true});Page.STOK->StockPage(p);Page.KATEGORI->CategoryPage(p);Page.SERVICE->ServicePage(p);Page.KASBON->KasbonPage(p);Page.PELANGGAN->CustomerPage(p);Page.PENGELUARAN->ExpensePage(p);Page.GAJI->PayrollPage(p);Page.LAINNYA->MorePage(p){page=it};Page.PENGATURAN->SettingsPage(p,api)
-        }
+        when(page){Page.HOME->HomePage(p,{search=true},{page=it});Page.KASIR->CashierPage(p,api);Page.TRANSAKSI->TransactionPage(p,api){page=Page.HOME};Page.LAPORAN->ReportPage(p,api,{search=true});Page.STOK->StockPage(p);Page.KATEGORI->CategoryPage(p);Page.SERVICE->ServicePage(p);Page.KASBON->KasbonPage(p);Page.PELANGGAN->CustomerPage(p);Page.PENGELUARAN->ExpensePage(p);Page.GAJI->PayrollPage(p);Page.LAINNYA->MorePage(p){page=it};Page.PENGATURAN->SettingsPage(p,api)}
     }
     if(sheet)TransactionSheet(api){sheet=false};if(search)SearchDialog{search=false}
 }
@@ -71,14 +70,14 @@ private enum class Page{HOME,KASIR,TRANSAKSI,LAPORAN,STOK,KATEGORI,SERVICE,KASBO
 @Composable private fun Quick(modifier:Modifier,icon:ImageVector,label:String,onClick:()->Unit){Card(modifier.clickable(onClick),colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(16.dp)){Column(Modifier.fillMaxWidth().padding(vertical=12.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(6.dp)){Icon(icon,null,tint=Scheme.primary);Text(label,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.SemiBold)}}}
 
 @Composable private fun HomePage(p:PaddingValues,search:()->Unit,go:(Page)->Unit){LazyColumn(Modifier.fillMaxSize().padding(p),contentPadding=PaddingValues(16.dp,8.dp,16.dp,110.dp),verticalArrangement=Arrangement.spacedBy(14.dp)){
-    item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Irkop Cell",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Sesi Kasir: Aktif",color=Success,fontWeight=FontWeight.Bold)};IconButton(search){Icon(Icons.Default.Search,"Cari")};Surface(Modifier.size(40.dp),CircleShape,Scheme.primaryContainer){Box(contentAlignment=Alignment.Center){Text("D",fontWeight=FontWeight.Bold)}}}}
-    item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp),modifier=Modifier.clickable{go(Page.KASIR)}){Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Row{Column(Modifier.weight(1f)){Text("Sesi Kasir Aktif",fontWeight=FontWeight.Bold);Text("Siti Aminah • Shift Pagi • 08:00 WIB",color=Muted,style=MaterialTheme.typography.bodySmall)};Badge("AKTIF")};Row{Metric("Saldo awal","Rp 1.500.000","Opening",Modifier.weight(1f));Spacer(Modifier.width(8.dp));Metric("Saldo berjalan","Rp 5.750.000","Real-time",Modifier.weight(1f))};Text("Kelola sesi & rekonsiliasi",color=Scheme.primary,fontWeight=FontWeight.Bold)}}}
-    item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Metric("Saldo Kas Laci","Rp 1.450.000","Real-time",Modifier.weight(1f));Metric("Omzet Hari Ini","Rp 7.420.000","82% target",Modifier.weight(1f));Metric("Transaksi","52","Nota",Modifier.weight(1f))}}
-    item{Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){Row{Text("Perlu Perhatian Segera",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("3 tindakan",color=Scheme.error)};Attention("3 Servis Siap Diambil","Kirim notifikasi WA",Icons.Default.Build){go(Page.SERVICE)};Attention("Kasbon Jatuh Tempo Hari Ini","2 pelanggan • Rp 320.000",Icons.Default.ReceiptLong){go(Page.KASBON)};Attention("Selisih Belum Ditoleransi","Shift malam • -Rp 15.000",Icons.Default.AccountBalanceWallet){go(Page.KASIR)}}}}
-    item{Text("Menu Kasir Utama",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)}
-    item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Inventory2,"Stok"){go(Page.STOK)};Quick(Modifier.weight(1f),Icons.Default.ReceiptLong,"Kasbon"){go(Page.KASBON)};Quick(Modifier.weight(1f),Icons.Default.People,"Pelanggan"){go(Page.PELANGGAN)};Quick(Modifier.weight(1f),Icons.Default.Wallet,"Pengeluaran"){go(Page.PENGELUARAN)}}}
-    item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Build,"Servis"){go(Page.SERVICE)};Quick(Modifier.weight(1f),Icons.Default.Group,"Gaji"){go(Page.GAJI)};Quick(Modifier.weight(1f),Icons.Default.Assessment,"Laporan"){go(Page.LAPORAN)};Quick(Modifier.weight(1f),Icons.Default.Settings,"Setting"){go(Page.PENGATURAN)}}}
-    item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp)){Row{Text("Aktivitas Terakhir",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("Lihat Semua",color=Scheme.primary)};listOf("Paket Data Telkomsel 50GB • Rp 105.000","Ganti LCD Samsung A12 • Rp 380.000","Top Up DANA Saldo 100k • Rp 102.500","Pulsa Indosat Reguler 25k • Rp 26.500").forEach{Text(it,Modifier.padding(vertical=8.dp))}}}}
+item{Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text("Irkop Cell",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold);Text("Sesi Kasir: Aktif",color=Success,fontWeight=FontWeight.Bold)};IconButton(search){Icon(Icons.Default.Search,"Cari")};Surface(Modifier.size(40.dp),CircleShape,Scheme.primaryContainer){Box(contentAlignment=Alignment.Center){Text("D",fontWeight=FontWeight.Bold)}}}}
+item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp),modifier=Modifier.clickable{go(Page.KASIR)}){Column(Modifier.padding(17.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){Row{Column(Modifier.weight(1f)){Text("Sesi Kasir Aktif",fontWeight=FontWeight.Bold);Text("Siti Aminah • Shift Pagi • 08:00 WIB",color=Muted,style=MaterialTheme.typography.bodySmall)};Badge("AKTIF")};Row{Metric("Saldo awal","Rp 1.500.000","Opening",Modifier.weight(1f));Spacer(Modifier.width(8.dp));Metric("Saldo berjalan","Rp 5.750.000","Real-time",Modifier.weight(1f))};Text("Kelola sesi & rekonsiliasi",color=Scheme.primary,fontWeight=FontWeight.Bold)}}}
+item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Metric("Saldo Kas Laci","Rp 1.450.000","Real-time",Modifier.weight(1f));Metric("Omzet Hari Ini","Rp 7.420.000","82% target",Modifier.weight(1f));Metric("Transaksi","52","Nota",Modifier.weight(1f))}}
+item{Card(colors=CardDefaults.cardColors(Low),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){Row{Text("Perlu Perhatian Segera",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("3 tindakan",color=Scheme.error)};Attention("3 Servis Siap Diambil","Kirim notifikasi WA",Icons.Default.Build){go(Page.SERVICE)};Attention("Kasbon Jatuh Tempo Hari Ini","2 pelanggan • Rp 320.000",Icons.Default.ReceiptLong){go(Page.KASBON)};Attention("Selisih Belum Ditoleransi","Shift malam • -Rp 15.000",Icons.Default.AccountBalanceWallet){go(Page.KASIR)}}}}
+item{Text("Menu Kasir Utama",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)}
+item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Inventory2,"Stok"){go(Page.STOK)};Quick(Modifier.weight(1f),Icons.Default.ReceiptLong,"Kasbon"){go(Page.KASBON)};Quick(Modifier.weight(1f),Icons.Default.People,"Pelanggan"){go(Page.PELANGGAN)};Quick(Modifier.weight(1f),Icons.Default.Wallet,"Pengeluaran"){go(Page.PENGELUARAN)}}}
+item{Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()){Quick(Modifier.weight(1f),Icons.Default.Build,"Servis"){go(Page.SERVICE)};Quick(Modifier.weight(1f),Icons.Default.Group,"Gaji"){go(Page.GAJI)};Quick(Modifier.weight(1f),Icons.Default.Assessment,"Laporan"){go(Page.LAPORAN)};Quick(Modifier.weight(1f),Icons.Default.Settings,"Setting"){go(Page.PENGATURAN)}}}
+item{Card(colors=CardDefaults.cardColors(Mid),shape=RoundedCornerShape(20.dp)){Column(Modifier.padding(16.dp)){Row{Text("Aktivitas Terakhir",fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f));Text("Lihat Semua",color=Scheme.primary)};listOf("Paket Data Telkomsel 50GB • Rp 105.000","Ganti LCD Samsung A12 • Rp 380.000","Top Up DANA Saldo 100k • Rp 102.500","Pulsa Indosat Reguler 25k • Rp 26.500").forEach{Text(it,Modifier.padding(vertical=8.dp))}}}}
 }}
 @Composable private fun Attention(t:String,s:String,i:ImageVector,click:()->Unit){Row(Modifier.fillMaxWidth().clickable(click),verticalAlignment=Alignment.CenterVertically){Surface(Modifier.size(40.dp),RoundedCornerShape(12.dp),High){Box(contentAlignment=Alignment.Center){Icon(i,null,tint=Scheme.primary)}};Spacer(Modifier.width(10.dp));Column(Modifier.weight(1f)){Text(t,fontWeight=FontWeight.SemiBold);Text(s,color=Muted,style=MaterialTheme.typography.bodySmall)};Icon(Icons.Default.ArrowForward,null,tint=Muted)}}
 

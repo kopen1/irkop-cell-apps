@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,53 +37,59 @@ private val AppScheme = darkColorScheme(
 class NativeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme(colorScheme = AppScheme) { LoginScreen() } }
+        setContent { MaterialTheme(colorScheme = AppScheme) { AutoLoginScreen() } }
     }
 }
 
 @Composable
-private fun LoginScreen() {
+private fun AutoLoginScreen() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val api = remember(context) { ApiClient(context) }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("Menyiapkan sesi demo…") }
+    var loggedIn by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    fun loginDemo() {
+        scope.launch {
+            message = "Login demo…"
+            try {
+                api.login("demo", "demodemo")
+                loggedIn = true
+                message = "Login demo berhasil"
+            } catch (e: Exception) {
+                message = e.message ?: "Login demo gagal"
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { loginDemo() }
+
+    if (loggedIn) {
+        DemoHome()
+    } else {
+        Column(
+            modifier = Modifier.fillMaxSize().background(Color(0xFF131313)).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Irkop Cell", style = MaterialTheme.typography.headlineLarge)
+            Text("Login otomatis akun demo")
+            Text(message)
+            Button(onClick = { loginDemo() }, modifier = Modifier.fillMaxWidth()) {
+                Text("Coba Lagi")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemoHome() {
     Column(
         modifier = Modifier.fillMaxSize().background(Color(0xFF131313)).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Irkop Cell", style = MaterialTheme.typography.headlineLarge)
-        Text("Solusi Kasir, PPOB & Servis Konter Modern")
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("ID Kasir / Username") },
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Kata Sandi / PIN Sesi") },
-            singleLine = true
-        )
-        Button(
-            onClick = {
-                scope.launch {
-                    try {
-                        api.login(username.trim(), password)
-                        message = "Login berhasil"
-                    } catch (e: Exception) {
-                        message = e.message ?: "Login gagal"
-                    }
-                }
-            },
-            enabled = username.isNotBlank() && password.isNotBlank(),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Masuk Sesi Kasir") }
-        if (message.isNotBlank()) Text(message)
+        Text("SESI KASIR: AKTIF", color = Color(0xFF4EDEA3))
+        Text("Akun demo: demo")
+        Text("Login otomatis berhasil")
     }
 }
